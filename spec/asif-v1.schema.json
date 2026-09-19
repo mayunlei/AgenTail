@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-session-bridge.local/spec/asif-v1.schema.json",
+  "title": "Agent Session Interchange Format v1",
+  "type": "object",
+  "required": ["$schema", "id", "title", "project", "createdAt", "updatedAt", "origin", "events"],
+  "properties": {
+    "$schema": { "const": "asif/1" },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "project": {
+      "type": "object",
+      "required": ["cwd", "name"],
+      "properties": {
+        "cwd": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "origin": {
+      "type": "object",
+      "required": ["agent", "sessionId"],
+      "properties": {
+        "agent": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "sourceKey": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "timestamp", "kind", "role", "text"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "kind": { "enum": ["message", "tool_call", "tool_result", "reasoning", "system"] },
+          "role": { "enum": ["user", "assistant", "system", "developer", "tool"] },
+          "text": { "type": "string" },
+          "name": { "type": "string" },
+          "callId": { "type": "string" },
+          "input": {},
+          "isError": { "type": "boolean" },
+          "source": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "extensions": { "type": "object" }
+  },
+  "additionalProperties": true
+}

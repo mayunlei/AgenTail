@@ -1,0 +1,41 @@
+{
+  "name": "agentail",
+  "version": "0.5.1",
+  "description": "Agentail — Any agent. Same trail. Local-first coding-agent session continuity.",
+  "homepage": "https://github.com/mayunlei/AgenTail#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mayunlei/AgenTail.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mayunlei/AgenTail/issues"
+  },
+  "keywords": [
+    "coding-agent",
+    "codex",
+    "claude-code",
+    "opencode",
+    "qoder",
+    "session-sync"
+  ],
+  "type": "module",
+  "bin": {
+    "agentail": "./bin/agent-session-bridge.mjs",
+    "agent-session-bridge": "./bin/agent-session-bridge.mjs",
+    "asb": "./bin/agent-session-bridge.mjs"
+  },
+  "scripts": {
+    "start": "node ./bin/agent-session-bridge.mjs serve",
+    "status": "node ./bin/agent-session-bridge.mjs status",
+    "app:build": "node ./bin/agent-session-bridge.mjs app build",
+    "app:install": "node ./bin/agent-session-bridge.mjs app install",
+    "app:open": "node ./bin/agent-session-bridge.mjs app open",
+    "release:build": "bash ./scripts/build-release.sh",
+    "test": "node --test",
+    "check": "node --check ./bin/agent-session-bridge.mjs && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

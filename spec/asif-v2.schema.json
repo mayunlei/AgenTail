@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-session-bridge.local/spec/asif-v2.schema.json",
+  "title": "Agent Session Interchange Format 2",
+  "type": "object",
+  "required": ["$schema", "id", "revision", "project", "origin", "origins", "events", "state"],
+  "properties": {
+    "$schema": { "const": "asif/2" },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "revision": {
+      "type": "object",
+      "required": ["id", "number", "parents", "createdAt"],
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "integer", "minimum": 1 },
+        "parents": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "lineage": {
+      "type": "object",
+      "required": ["rootSessionId", "ancestors"],
+      "properties": {
+        "rootSessionId": { "type": "string" },
+        "ancestors": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      },
+      "additionalProperties": true
+    },
+    "project": {
+      "type": "object",
+      "required": ["cwd", "name", "roots", "logicalId"],
+      "properties": {
+        "cwd": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "roots": { "type": "array", "items": { "type": "string" } },
+        "logicalId": { "type": "string" },
+        "vcs": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "origin": { "$ref": "#/$defs/origin" },
+    "origins": { "type": "array", "items": { "$ref": "#/$defs/origin" } },
+    "heads": { "type": "array", "items": { "type": "string" } },
+    "events": { "type": "array", "items": { "$ref": "#/$defs/event" } },
+    "state": { "type": "object" },
+    "merge": {
+      "type": "object",
+      "required": ["status", "branches", "conflicts"],
+      "properties": {
+        "status": { "enum": ["clean", "branch", "merged", "conflicted", "resolved"] },
+        "baseRevisionId": { "type": ["string", "null"] },
+        "branches": { "type": "array", "items": { "type": "object" } },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "status", "variants"],
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "type": "string" },
+              "status": { "enum": ["unresolved", "resolved"] },
+              "variants": { "type": "array", "minItems": 2, "items": { "type": "object" } }
+            },
+            "additionalProperties": true
+          }
+        },
+        "lastMergedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "extensions": { "type": "object" }
+  },
+  "$defs": {
+    "origin": {
+      "type": "object",
+      "required": ["agent", "sessionId"],
+      "properties": {
+        "agent": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "sourceKey": { "type": "string" },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "event": {
+      "type": "object",
+      "required": ["id", "timestamp", "type", "kind", "role", "content", "turnId", "branchId", "parentIds", "sequence", "provenance", "portability"],
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string" },
+        "kind": { "type": "string" },
+        "role": { "type": "string" },
+        "text": { "type": "string" },
+        "content": { "type": "array", "items": { "type": "object" } },
+        "turnId": { "type": "string" },
+        "branchId": { "type": "string" },
+        "parentIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "sequence": { "type": "object" },
+        "provenance": { "type": "object" },
+        "portability": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
