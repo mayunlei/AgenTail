@@ -17,6 +17,7 @@ export class OpenCodeAdapter extends Adapter {
     this.dataRoot = options.dataRoot ?? path.join(home, ".local", "share", "opencode");
     this.importsDir = options.importsDir;
     this.env = options.env ?? process.env;
+    this.discoverCache = null;
   }
 
   async command(args, options = {}) {
@@ -58,10 +59,20 @@ export class OpenCodeAdapter extends Adapter {
   }
 
   async discover({ historyDays = 30, projectRoots = [] } = {}) {
+    const cacheKey = JSON.stringify({ historyDays, projectRoots });
+    if (this.discoverCache?.key === cacheKey && Date.now() - this.discoverCache.at < 30_000) {
+      return this.discoverCache.sessions;
+    }
     let output;
     try { output = (await this.command(["session", "list", "--format", "json", "--max-count", "200"])).stdout.trim(); }
-    catch { return []; }
-    if (!output) return [];
+    catch {
+      this.discoverCache = { key: cacheKey, at: Date.now(), sessions: [] };
+      return [];
+    }
+    if (!output) {
+      this.discoverCache = { key: cacheKey, at: Date.now(), sessions: [] };
+      return [];
+    }
     const sessions = parseJsonOutput(output);
     if (!Array.isArray(sessions)) return [];
     const legacyMetadata = new Map();
@@ -73,7 +84,7 @@ export class OpenCodeAdapter extends Adapter {
       } catch {}
     }
     const cutoff = Date.now() - historyDays * 86_400_000;
-    return sessions
+    const discovered = sessions
       .map((item) => {
         const updated = item.time?.updated ?? item.updatedAt ?? item.updated ?? Date.now();
         const marker = (item.metadata ?? legacyMetadata.get(item.id))?.agentSessionBridge ?? {};
@@ -94,6 +105,8 @@ export class OpenCodeAdapter extends Adapter {
       .filter((item) => new Date(item.updatedAt).getTime() >= cutoff)
       .filter((item) => !projectRoots.length || projectRoots.some((root) => item.cwd === root || item.cwd.startsWith(`${root}${path.sep}`)))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    this.discoverCache = { key: cacheKey, at: Date.now(), sessions: discovered };
+    return discovered;
   }
 
   async read(descriptor, { canonicalId } = {}) {
@@ -214,6 +227,7 @@ export class OpenCodeAdapter extends Adapter {
     const cwd = await exists(session.project.cwd) ? session.project.cwd : process.cwd();
     const { stdout } = await this.command(["import", file], { cwd, timeout: 60_000 });
     if (!stdout.includes("Imported session")) throw new Error(`OpenCode import did not confirm success: ${stdout.trim()}`);
+    this.discoverCache = null;
     return {
       path: file,
       key: sessionId,

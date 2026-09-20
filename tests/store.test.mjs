@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readdir } from "node:fs/promises";
+import { mkdtemp, readFile, readdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -33,4 +33,35 @@ test("revision storage keeps only the configured recent history", async () => {
     "rev_000000000000000000000005.json",
     "rev_000000000000000000000006.json",
   ]);
+});
+
+test("session summaries use a compact persistent index", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "asb-session-index-"));
+  const store = await new BridgeStore(root).initialize();
+  const session = createSession({
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    origin: { agent: "codex", sessionId: "indexed-source" },
+    cwd: root,
+    title: "Indexed session",
+    events: [
+      { id: "evt_one", timestamp: "2026-09-20T00:00:00.000Z", kind: "message", role: "user", text: "One" },
+      { id: "evt_two", timestamp: "2026-09-20T00:01:00.000Z", kind: "message", role: "assistant", text: "Two" },
+    ],
+  });
+  await store.saveSession(session);
+  const summaries = await store.listSessionSummaries();
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].eventCount, 2);
+  assert.equal(summaries[0].events, undefined);
+  const index = JSON.parse(await readFile(path.join(root, "session-index.json"), "utf8"));
+  assert.equal(index.sessions[session.id].summary.title, "Indexed session");
+  assert.equal(index.sessions[session.id].summary.events, undefined);
+});
+
+test("polling is clamped to a CPU-safe interval", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "asb-poll-clamp-"));
+  const store = await new BridgeStore(root).initialize();
+  const config = await store.saveConfig({ pollIntervalMs: 1_000 });
+  assert.equal(config.pollIntervalMs, 10_000);
+  assert.equal((await store.config()).pollIntervalMs, 10_000);
 });

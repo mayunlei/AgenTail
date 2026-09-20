@@ -1,7 +1,7 @@
 import { appendFile, copyFile, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Adapter, contentEvent, descriptorForFile, walkFiles } from "./base.mjs";
+import { Adapter, contentEvent, descriptorForFile, readJsonLinesPrefix, walkFiles } from "./base.mjs";
 import { bridgeMarker, createSession } from "../asif.mjs";
 import { atomicWrite, encodeProjectPath, parseJsonLines, stableId, textFromContent, titleFromEvents, uuidFrom } from "../util.mjs";
 
@@ -37,22 +37,28 @@ export class ClaudeAdapter extends Adapter {
       try {
         const descriptor = await descriptorForFile(file, { agent: this.id });
         if (new Date(descriptor.updatedAt).getTime() < cutoff) continue;
-        const records = parseJsonLines(await readFile(file, "utf8"));
-        const message = records.find((record) => record.type === "user" || record.type === "assistant");
-        if (!message) continue;
-        const marker = message.agentSessionBridge ?? {};
-        const cwd = message.cwd || process.cwd();
+        const metadata = await this.cachedDiscoveryMetadata(descriptor, async () => {
+          const records = await readJsonLinesPrefix(file);
+          const message = records.find((record) => record.type === "user" || record.type === "assistant");
+          if (!message) return null;
+          const marker = message.agentSessionBridge ?? {};
+          const firstUser = records.find((record) => record.type === "user" && record.message);
+          return {
+            sessionId: message.sessionId || path.basename(file, ".jsonl"),
+            canonicalId: marker.canonicalId,
+            sourceAgent: marker.sourceAgent,
+            sourceSessionId: marker.sourceSessionId,
+            cwd: message.cwd || process.cwd(),
+            title: textFromContent(firstUser?.message?.content).replace(/\s+/g, " ").slice(0, 88) || "Claude Code session",
+            createdAt: message.timestamp || descriptor.createdAt,
+          };
+        });
+        if (!metadata) continue;
+        const cwd = metadata.cwd;
         if (projectRoots.length && !projectRoots.some((root) => cwd === root || cwd.startsWith(`${root}${path.sep}`))) continue;
-        const firstUser = records.find((record) => record.type === "user" && record.message);
         descriptors.push({
           ...descriptor,
-          sessionId: message.sessionId || path.basename(file, ".jsonl"),
-          canonicalId: marker.canonicalId,
-          sourceAgent: marker.sourceAgent,
-          sourceSessionId: marker.sourceSessionId,
-          cwd,
-          title: textFromContent(firstUser?.message?.content).replace(/\s+/g, " ").slice(0, 88) || "Claude Code session",
-          createdAt: message.timestamp || descriptor.createdAt,
+          ...metadata,
         });
       } catch {
         // Ignore a transcript while a partial line is being appended.

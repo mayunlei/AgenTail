@@ -1,7 +1,7 @@
 import { appendFile, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Adapter, contentEvent, descriptorForFile, walkFiles } from "./base.mjs";
+import { Adapter, contentEvent, descriptorForFile, readJsonLinesPrefix, walkFiles } from "./base.mjs";
 import { bridgeMarker, createSession } from "../asif.mjs";
 import { atomicWrite, ensureDir, iso, parseJsonLines, stableId, textFromContent, titleFromEvents } from "../util.mjs";
 
@@ -35,23 +35,27 @@ export class CodexAdapter extends Adapter {
       try {
         const descriptor = await descriptorForFile(file, { agent: this.id });
         if (new Date(descriptor.updatedAt).getTime() < cutoff) continue;
-        const records = parseJsonLines(await readFile(file, "utf8"));
-        const meta = records.find((record) => record.type === "session_meta")?.payload ?? {};
-        const marker = meta.agent_session_bridge ?? {};
-        const cwd = meta.cwd || process.cwd();
+        const metadata = await this.cachedDiscoveryMetadata(descriptor, async () => {
+          const records = await readJsonLinesPrefix(file);
+          const meta = records.find((record) => record.type === "session_meta")?.payload ?? {};
+          const marker = meta.agent_session_bridge ?? {};
+          const firstVisibleUser = records.find((record) => record.type === "event_msg" && record.payload?.type === "user_message" && record.payload?.message)
+            ?? records.find((record) => record.type === "response_item" && record.payload?.type === "message" && record.payload?.role === "user" && record.payload?._agent_session_bridge);
+          return {
+            sessionId: meta.id || path.basename(file, ".jsonl"),
+            canonicalId: marker.canonicalId,
+            sourceAgent: marker.sourceAgent,
+            sourceSessionId: marker.sourceSessionId,
+            cwd: meta.cwd || process.cwd(),
+            title: textFromContent(firstVisibleUser?.payload?.message ?? firstVisibleUser?.payload?.content).replace(/\s+/g, " ").slice(0, 88) || "Codex session",
+            createdAt: meta.timestamp || descriptor.createdAt,
+          };
+        });
+        const cwd = metadata.cwd;
         if (projectRoots.length && !projectRoots.some((root) => cwd === root || cwd.startsWith(`${root}${path.sep}`))) continue;
-        const firstVisibleUser = records.find((record) => record.type === "event_msg" && record.payload?.type === "user_message" && record.payload?.message)
-          ?? records.find((record) => record.type === "response_item" && record.payload?.type === "message" && record.payload?.role === "user" && record.payload?._agent_session_bridge);
-        const title = textFromContent(firstVisibleUser?.payload?.message ?? firstVisibleUser?.payload?.content).replace(/\s+/g, " ").slice(0, 88) || "Codex session";
         descriptors.push({
           ...descriptor,
-          sessionId: meta.id || path.basename(file, ".jsonl"),
-          canonicalId: marker.canonicalId,
-          sourceAgent: marker.sourceAgent,
-          sourceSessionId: marker.sourceSessionId,
-          cwd,
-          title,
-          createdAt: meta.timestamp || descriptor.createdAt,
+          ...metadata,
         });
       } catch {
         // Ignore a file while Codex is in the middle of appending an incomplete line.
@@ -191,7 +195,7 @@ export class CodexAdapter extends Adapter {
           timestamp: session.createdAt,
           cwd: session.project.cwd,
           originator: "agent-session-bridge",
-          cli_version: "0.5.1",
+          cli_version: "0.5.2",
           source: "cli",
           model_provider: "openai",
           base_instructions: null,

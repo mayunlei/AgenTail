@@ -109,14 +109,14 @@
         <summary><span><b data-i18n="advanced">高级策略</b><small data-i18n="advancedHelp">扫描范围、转换内容与本地账本</small></span><span aria-hidden="true">＋</span></summary>
         <div class="settings-grid">
           <label class="setting"><span><strong data-i18n="discoveryWindow">发现窗口</strong><small data-i18n="discoveryHelp">扫描最近多少天</small></span><span class="number-field"><input id="history-days" type="number" min="1" max="3650"><b data-i18n="days">天</b></span></label>
-          <label class="setting"><span><strong data-i18n="scanInterval">扫描间隔</strong><small data-i18n="scanHelp">实时同步轮询频率</small></span><span class="number-field"><input id="poll-seconds" type="number" min="1" max="60"><b data-i18n="seconds">秒</b></span></label>
+          <label class="setting"><span><strong data-i18n="scanInterval">扫描间隔</strong><small data-i18n="scanHelp">实时同步轮询频率</small></span><span class="number-field"><input id="poll-seconds" type="number" min="10" max="60"><b data-i18n="seconds">秒</b></span></label>
           <div class="setting wide"><span><strong data-i18n="contentScope">内容范围</strong><small data-i18n="contentHelp">工具调用会按目标能力保留结构或转为惰性历史文本</small></span><div class="segmented" id="content-policy"><button data-value="messages-only" data-i18n="messagesOnly">仅消息</button><button data-value="messages-and-tools" data-i18n="messagesTools">消息 + 工具</button></div></div>
           <div class="ledger-row"><span data-i18n="localLedger">本地账本</span><code id="ledger-path">~/.agent-session-bridge</code></div>
         </div>
       </details>
 
       <footer>
-        <span>Agentail <b>v0.5.1</b> · <span data-i18n="slogan">Agent 随心换，上下文不断。</span></span>
+        <span>Agentail <b>v0.5.2</b> · <span data-i18n="slogan">Agent 随心换，上下文不断。</span></span>
         <span>ASIF/2 · capability-aware conversion · readback verification</span>
       </footer>
     </main>

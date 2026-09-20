@@ -59,6 +59,18 @@ test("OpenCode export uses the official import envelope", async () => {
   assert.ok(data.messages.every((message) => message.parts.every((part) => part.sessionID === data.info.id)));
 });
 
+test("OpenCode discovery caches the expensive CLI session listing", async () => {
+  let calls = 0;
+  const adapter = new OpenCodeAdapter({ dataRoot: "/tmp/nonexistent-agentail-opencode" });
+  adapter.command = async () => {
+    calls += 1;
+    return { stdout: "[]" };
+  };
+  await adapter.discover({ historyDays: 30 });
+  await adapter.discover({ historyDays: 30 });
+  assert.equal(calls, 1);
+});
+
 test("Claude marks imported assistant history synthetic and repairs the obsolete bridge model", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "asb-claude-model-"));
   const adapter = new ClaudeAdapter({ root: path.join(root, "claude") });
@@ -97,4 +109,20 @@ test("Codex ignores injected prompt envelopes when visible user events exist", a
   assert.equal(descriptor.title, "Build the real feature");
   const parsed = await adapter.read(descriptor);
   assert.deepEqual(parsed.events.map((event) => event.text), ["Build the real feature", "Feature built"]);
+});
+
+test("Codex discovery reads only bounded metadata from a large active transcript", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "asb-codex-bounded-discovery-"));
+  const sessionsRoot = path.join(root, "sessions");
+  const file = path.join(sessionsRoot, "2026", "09", "20", "rollout-large.jsonl");
+  await mkdir(path.dirname(file), { recursive: true });
+  const records = [
+    { timestamp: "2026-09-20T05:00:00.000Z", type: "session_meta", payload: { id: "99999999-9999-4999-8999-999999999999", timestamp: "2026-09-20T05:00:00.000Z", cwd: "/tmp/project" } },
+    { timestamp: "2026-09-20T05:00:01.000Z", type: "event_msg", payload: { type: "user_message", message: "Bounded discovery" } },
+  ];
+  await writeFile(file, `${records.map((record) => JSON.stringify(record)).join("\n")}\n${" ".repeat(300_000)}{invalid tail}\n`);
+  const adapter = new CodexAdapter({ root: sessionsRoot });
+  const discovered = await adapter.discover({ historyDays: 3650 });
+  assert.equal(discovered.length, 1);
+  assert.equal(discovered[0].title, "Bounded discovery");
 });

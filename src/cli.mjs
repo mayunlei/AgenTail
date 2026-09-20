@@ -107,7 +107,7 @@ export async function runCli(argv) {
 }
 
 function printHelp() {
-  console.log(`Agentail 0.5.1 — Any agent. Same trail.
+  console.log(`Agentail 0.5.2 — Any agent. Same trail.
 
 Usage:
   asb serve [--port 4765] [--open]

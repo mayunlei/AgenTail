@@ -85,6 +85,12 @@ static NSString *LocalizedErrorMessage(NSError *error, BOOL english) {
     }
 }
 
+- (void)viewDidDisappear {
+    [super viewDidDisappear];
+    [self.timer invalidate];
+    self.timer = nil;
+}
+
 - (void)render {
     for (NSView *child in self.view.subviews.copy) [child removeFromSuperview];
     NSUInteger sessionCount = MIN((NSUInteger)3, [self.status[@"sessions"] count]);

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 — 2026-09-20
+
+- Replaced repeated full canonical-session reads with a compact persistent summary index.
+- Bounded and cached Codex, Claude Code, and Qoder discovery metadata reads.
+- Cached expensive OpenCode CLI discovery and agent capability probes.
+- Raised the live-sync polling floor to 10 seconds and deferred active files until briefly stable.
+- Stopped the menu bar status timer when its popover is closed.
+
 ## 0.5.1 — 2026-09-19
 
 First public release of Agentail.

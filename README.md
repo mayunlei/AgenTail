@@ -62,6 +62,7 @@ node ~/.local/share/agentail/current/bin/agent-session-bridge.mjs app uninstall
 - **初次开启只建基线**：默认不会把全部历史会话突然灌入所有工具。
 - **中英文界面**：网页详细账本和 macOS 菜单栏共享语言配置，可随时切换中文或 English。
 - **源会话唯一身份**：以 `sourceAgent + native sessionId` 建立唯一索引；同一源文件换路径或旧投影回流时仍收敛到同一个 canonical session。
+- **低开销守护**：会话列表使用持久化轻量索引，原生 JSONL 发现仅读取有限头部并缓存，活动文件等待短暂稳定后再转换，避免重复解析大型会话。
 
 ## 支持矩阵
 

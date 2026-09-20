@@ -2,13 +2,14 @@ import os from "node:os";
 import path from "node:path";
 import { readdir, stat, unlink } from "node:fs/promises";
 import { assertSession, upgradeSession } from "./asif.mjs";
-import { atomicWrite, ensureDir, exists, readJson, writeJson } from "./util.mjs";
+import { atomicWrite, ensureDir, exists, fileSignature, readJson, writeJson } from "./util.mjs";
 
 export const DEFAULT_CONFIG = Object.freeze({
   version: 2,
   language: "zh-CN",
   syncEnabled: false,
-  pollIntervalMs: 2500,
+  pollIntervalMs: 10_000,
+  settleMs: 5_000,
   historyDays: 30,
   revisionHistoryLimit: 10,
   initialSync: "new-only",
@@ -57,12 +58,16 @@ export class BridgeStore {
     this.root = path.resolve(root);
     this.configPath = path.join(this.root, "config.json");
     this.statePath = path.join(this.root, "state.json");
+    this.sessionIndexPath = path.join(this.root, "session-index.json");
     this.sessionsDir = path.join(this.root, "sessions");
     this.revisionsDir = path.join(this.root, "revisions");
     this.importsDir = path.join(this.root, "imports");
     this.exportsDir = path.join(this.root, "exports");
     this.handoffsDir = path.join(this.root, "handoffs");
     this.projectionsDir = path.join(this.root, "projections");
+    this._sessionIndex = null;
+    this._sessionIndexPromise = null;
+    this._sessionIndexWrite = Promise.resolve();
   }
 
   async initialize() {
@@ -82,11 +87,14 @@ export class BridgeStore {
 
   async config() {
     const value = await readJson(this.configPath, DEFAULT_CONFIG);
-    return {
+    const config = {
       ...structuredClone(DEFAULT_CONFIG),
       ...value,
       selectedAgents: { ...DEFAULT_CONFIG.selectedAgents, ...value.selectedAgents },
     };
+    config.pollIntervalMs = Math.max(10_000, Math.min(60_000, Number(config.pollIntervalMs) || 10_000));
+    config.settleMs = Math.max(1_000, Math.min(60_000, Number(config.settleMs) || 5_000));
+    return config;
   }
 
   async saveConfig(patch) {
@@ -96,7 +104,8 @@ export class BridgeStore {
       ...patch,
       selectedAgents: { ...current.selectedAgents, ...(patch.selectedAgents ?? {}) },
     };
-    next.pollIntervalMs = Math.max(1000, Math.min(60_000, Number(next.pollIntervalMs) || 2500));
+    next.pollIntervalMs = Math.max(10_000, Math.min(60_000, Number(next.pollIntervalMs) || 10_000));
+    next.settleMs = Math.max(1_000, Math.min(60_000, Number(next.settleMs) || 5_000));
     next.historyDays = Math.max(1, Math.min(3650, Number(next.historyDays) || 30));
     next.revisionHistoryLimit = Math.max(2, Math.min(100, Number(next.revisionHistoryLimit) || 10));
     next.language = ["zh-CN", "en"].includes(next.language) ? next.language : "zh-CN";
@@ -140,6 +149,7 @@ export class BridgeStore {
       writeJson(this.sessionPath(upgraded.id), upgraded),
       this.saveRevision(upgraded),
     ]);
+    await this.updateSessionIndex(upgraded);
     return this.sessionPath(upgraded.id);
   }
 
@@ -201,6 +211,63 @@ export class BridgeStore {
     return sessions.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)).slice(0, limit);
   }
 
+  async listSessionSummaries(limit = 100) {
+    const index = await this.sessionIndex();
+    const files = (await readdir(this.sessionsDir)).filter((file) => file.endsWith(".json")).sort();
+    const present = new Set(files.map((file) => path.basename(file, ".json")));
+    let changed = false;
+
+    for (const id of Object.keys(index.sessions)) {
+      if (present.has(id)) continue;
+      delete index.sessions[id];
+      changed = true;
+    }
+
+    for (const file of files) {
+      const id = path.basename(file, ".json");
+      const sessionFile = path.join(this.sessionsDir, file);
+      let signature;
+      try { signature = await fileSignature(sessionFile); }
+      catch { continue; }
+      if (index.sessions[id]?.signature === signature) continue;
+      try {
+        const session = upgradeSession(await readJson(sessionFile));
+        index.sessions[id] = { signature, summary: compactSessionSummary(session) };
+        changed = true;
+      } catch {}
+    }
+
+    if (changed) await this.saveSessionIndex(index);
+    return Object.values(index.sessions)
+      .map((entry) => entry.summary)
+      .filter(Boolean)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, limit);
+  }
+
+  async sessionIndex() {
+    if (this._sessionIndex) return this._sessionIndex;
+    if (!this._sessionIndexPromise) {
+      this._sessionIndexPromise = readJson(this.sessionIndexPath, { version: 1, sessions: {} })
+        .then((value) => ({ version: 1, sessions: value?.sessions ?? {} }));
+    }
+    this._sessionIndex = await this._sessionIndexPromise;
+    return this._sessionIndex;
+  }
+
+  async updateSessionIndex(session) {
+    const index = await this.sessionIndex();
+    const signature = await fileSignature(this.sessionPath(session.id));
+    index.sessions[session.id] = { signature, summary: compactSessionSummary(session) };
+    await this.saveSessionIndex(index);
+  }
+
+  async saveSessionIndex(index) {
+    const snapshot = structuredClone(index);
+    this._sessionIndexWrite = this._sessionIndexWrite.catch(() => {}).then(() => writeJson(this.sessionIndexPath, snapshot));
+    await this._sessionIndexWrite;
+  }
+
   async saveProjection(canonicalId, targetId, manifest) {
     const file = path.join(this.projectionsDir, `${canonicalId}--${targetId}.json`);
     await writeJson(file, manifest);
@@ -219,4 +286,50 @@ export class BridgeStore {
     state.activity.unshift({ at: new Date().toISOString(), ...entry });
     state.activity = state.activity.slice(0, 100);
   }
+}
+
+function compactSessionSummary(session) {
+  const conflicts = (session.merge?.conflicts ?? []).map((conflict) => ({
+    id: conflict.id,
+    kind: conflict.kind,
+    eventId: conflict.eventId,
+    status: conflict.status,
+    detectedAt: conflict.detectedAt,
+    variants: (conflict.variants ?? []).map((variant) => ({
+      id: variant.id,
+      side: variant.side,
+      agent: variant.agent,
+      sessionId: variant.sessionId,
+      branchId: variant.branchId,
+      event: variant.event ? {
+        role: variant.event.role,
+        kind: variant.event.kind,
+        text: String(variant.event.text ?? "").slice(0, 4_000),
+      } : null,
+    })),
+  }));
+  return {
+    id: session.id,
+    title: session.title,
+    project: session.project,
+    origin: session.origin,
+    origins: session.origins,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    revision: session.revision,
+    eventCount: session.events?.length ?? 0,
+    merge: {
+      status: session.merge?.status ?? "clean",
+      baseRevisionId: session.merge?.baseRevisionId ?? null,
+      branches: (session.merge?.branches ?? []).map((branch) => ({ id: branch.id })),
+      conflicts,
+    },
+    state: {
+      objective: session.state?.objective ?? "",
+      summary: session.state?.summary ?? "",
+      status: session.state?.status ?? "unknown",
+      touchedFiles: session.state?.touchedFiles?.slice(0, 30) ?? [],
+      tests: (session.state?.tests ?? []).map((test) => ({ status: test.status })),
+    },
+  };
 }

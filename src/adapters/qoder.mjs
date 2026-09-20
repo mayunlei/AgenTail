@@ -1,7 +1,7 @@
 import { appendFile, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Adapter, contentEvent, descriptorForFile, walkFiles } from "./base.mjs";
+import { Adapter, contentEvent, descriptorForFile, readJsonLinesPrefix, walkFiles } from "./base.mjs";
 import { bridgeMarker, createSession } from "../asif.mjs";
 import { atomicWrite, encodeProjectPath, parseJsonLines, stableId, textFromContent, titleFromEvents, uuidFrom } from "../util.mjs";
 
@@ -35,24 +35,29 @@ export class QoderAdapter extends Adapter {
       try {
         const descriptor = await descriptorForFile(file, { agent: this.id });
         if (new Date(descriptor.updatedAt).getTime() < cutoff) continue;
-        const records = parseJsonLines(await readFile(file, "utf8"));
-        const first = records.find((record) => ["user", "assistant"].includes(record.type));
-        const meta = records.find((record) => record.type === "session_meta");
-        if (!first && !meta) continue;
-        const cwd = first?.cwd || meta?.cwd || process.cwd();
+        const metadata = await this.cachedDiscoveryMetadata(descriptor, async () => {
+          const records = await readJsonLinesPrefix(file);
+          const first = records.find((record) => ["user", "assistant"].includes(record.type));
+          const meta = records.find((record) => record.type === "session_meta");
+          if (!first && !meta) return null;
+          const marker = meta?.data?.content?.agent_session_bridge;
+          const firstUser = records.find((record) => record.type === "user");
+          return {
+            sessionId: first?.sessionId || meta?.sessionId || path.basename(file, ".jsonl"),
+            canonicalId: marker?.canonicalId,
+            sourceAgent: marker?.sourceAgent,
+            sourceSessionId: marker?.sourceSessionId,
+            cwd: first?.cwd || meta?.cwd || process.cwd(),
+            title: textFromContent(firstUser?.message?.content).replace(/\s+/g, " ").slice(0, 88) || "Qoder session",
+            createdAt: first?.timestamp || descriptor.createdAt,
+          };
+        });
+        if (!metadata) continue;
+        const cwd = metadata.cwd;
         if (projectRoots.length && !projectRoots.some((root) => cwd === root || cwd.startsWith(`${root}${path.sep}`))) continue;
-        const sessionId = first?.sessionId || meta?.sessionId || path.basename(file, ".jsonl");
-        const marker = meta?.data?.content?.agent_session_bridge;
-        const firstUser = records.find((record) => record.type === "user");
         descriptors.push({
           ...descriptor,
-          sessionId,
-          canonicalId: marker?.canonicalId,
-          sourceAgent: marker?.sourceAgent,
-          sourceSessionId: marker?.sourceSessionId,
-          cwd,
-          title: textFromContent(firstUser?.message?.content).replace(/\s+/g, " ").slice(0, 88) || "Qoder session",
-          createdAt: first?.timestamp || descriptor.createdAt,
+          ...metadata,
         });
       } catch {}
     }

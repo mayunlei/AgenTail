@@ -10,6 +10,7 @@ export class SyncEngine {
     this.timer = null;
     this.running = false;
     this.stopped = false;
+    this.agentStatusCache = null;
   }
 
   async initialize() {
@@ -61,7 +62,7 @@ export class SyncEngine {
       this.store.config(),
       this.store.state(),
       this.agentStatuses(),
-      this.store.listSessions(200),
+      this.store.listSessionSummaries(200),
     ]);
     const visibleSessions = sessions.filter((session) => !state.aliases[session.id]);
     const sessionSummaries = summarizeSessions(visibleSessions, state, config, agentStatuses);
@@ -84,7 +85,7 @@ export class SyncEngine {
     return {
       product: {
         name: "Agentail",
-        version: "0.5.1",
+        version: "0.5.2",
         protocol: "ASIF/2",
         slogan: { en: "Any agent. Same trail.", zh: "Agent 随心换，上下文不断。" },
       },
@@ -101,7 +102,10 @@ export class SyncEngine {
   }
 
   async agentStatuses() {
-    return Promise.all([...this.adapters.values()].map(async (adapter) => {
+    if (this.agentStatusCache && Date.now() - this.agentStatusCache.at < 30_000) {
+      return this.agentStatusCache.statuses;
+    }
+    const statuses = await Promise.all([...this.adapters.values()].map(async (adapter) => {
       try { return await adapter.status(); }
       catch (error) {
         return {
@@ -116,6 +120,8 @@ export class SyncEngine {
         };
       }
     }));
+    this.agentStatusCache = { at: Date.now(), statuses };
+    return statuses;
   }
 
   async listSessions(agentId, limit = 50) {
@@ -139,7 +145,7 @@ export class SyncEngine {
       this.store.config(),
       this.store.state(),
       this.agentStatuses(),
-      this.store.listSessions(Math.max(1, Math.min(200, limit))),
+      this.store.listSessionSummaries(Math.max(1, Math.min(200, limit))),
     ]);
     return summarizeSessions(sessions.filter((session) => !state.aliases[session.id]), state, config, agentStatuses);
   }
@@ -183,7 +189,7 @@ export class SyncEngine {
     return { baseline: count, written: 0, changed: 0 };
   }
 
-  async syncOnce({ includeExisting = false } = {}) {
+  async syncOnce({ includeExisting = false, settle = false } = {}) {
     if (this.running) return { skipped: true, reason: "sync already running" };
     this.running = true;
     try {
@@ -233,6 +239,7 @@ export class SyncEngine {
         const { agentId, adapter, descriptor, previousSource } = discovery;
         summary.scanned += 1;
         if (!includeExisting && previousSource?.signature === descriptor.signature) continue;
+        if (settle && !includeExisting && !descriptorIsSettled(descriptor, config.settleMs)) continue;
         try {
           const canonicalId = resolveCanonicalAlias(state,
             (discovery.identityKey ? state.identities[discovery.identityKey] : null)
@@ -600,7 +607,7 @@ export class SyncEngine {
       if (this.stopped) return;
       try {
         const config = await this.store.config();
-        if (config.syncEnabled) await this.syncOnce();
+        if (config.syncEnabled) await this.syncOnce({ settle: true });
         this.timer = setTimeout(loop, config.pollIntervalMs);
       } catch {
         this.timer = setTimeout(loop, 5000);
@@ -656,12 +663,17 @@ function resolveCanonicalAlias(state, canonicalId) {
 
 function choosePreferredCanonical(sessions) {
   return [...sessions].sort((left, right) => {
-    const eventDifference = (right.events?.length ?? 0) - (left.events?.length ?? 0);
+    const eventDifference = (right.eventCount ?? right.events?.length ?? 0) - (left.eventCount ?? left.events?.length ?? 0);
     if (eventDifference) return eventDifference;
     const revisionDifference = (right.revision?.number ?? 0) - (left.revision?.number ?? 0);
     if (revisionDifference) return revisionDifference;
     return new Date(right.updatedAt ?? 0).getTime() - new Date(left.updatedAt ?? 0).getTime();
   })[0] ?? null;
+}
+
+function descriptorIsSettled(descriptor, settleMs = 5_000) {
+  const updatedAt = new Date(descriptor.updatedAt).getTime();
+  return !Number.isFinite(updatedAt) || Date.now() - updatedAt >= settleMs;
 }
 
 function selectedAgentIds(config) {
@@ -723,7 +735,7 @@ function summarizeSessions(sessions, state, config, agentStatuses) {
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       revision: session.revision,
-      eventCount: session.events.length,
+      eventCount: session.eventCount ?? session.events?.length ?? 0,
       merge: {
         status: session.merge?.status ?? "clean",
         baseRevisionId: session.merge?.baseRevisionId ?? null,
