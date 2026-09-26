@@ -58,6 +58,14 @@ export async function runCli(argv) {
     return;
   }
   if (command === "repair") {
+    if (positional[1] === "conflicts" || flags.conflicts) {
+      const result = await engine.repairEquivalentConflicts({ apply: Boolean(flags.apply) });
+      console.log(JSON.stringify({
+        ...result,
+        ...(!flags.apply && result.conflictsResolved ? { next: "Re-run with --apply after stopping the background service." } : {}),
+      }, null, 2));
+      return;
+    }
     const agentId = String(flags.agent ?? positional[1] ?? "claude");
     const adapter = adapters.get(agentId);
     if (!adapter || typeof adapter.repairImportedModels !== "function") throw new Error(`No repair operation is available for ${agentId}`);
@@ -107,7 +115,7 @@ export async function runCli(argv) {
 }
 
 function printHelp() {
-  console.log(`Agentail 0.5.2 — Any agent. Same trail.
+  console.log(`Agentail 0.5.4 — Sync sessions across coding agents.
 
 Usage:
   asb serve [--port 4765] [--open]
@@ -115,6 +123,7 @@ Usage:
   asb service install|status|uninstall [--port 4765]
   asb app build|install|open|status|uninstall [--port 4765] [--prebuilt]
   asb repair --agent claude [--apply]
+  asb repair conflicts [--apply]
   asb scan --agent codex [--limit 50]
   asb sync [--include-existing]
   asb resolve --session <canonical-id> --conflict <conflict-id> [--strategy both|current|incoming]

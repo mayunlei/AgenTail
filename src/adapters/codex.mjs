@@ -83,6 +83,7 @@ export class CodexAdapter extends Adapter {
       }
       if (record.type !== "response_item" || !record.payload) continue;
       const payload = record.payload;
+      const eventMarker = payload._agent_session_bridge ?? {};
       const eventId = payload._agent_session_bridge?.eventId
         ?? `evt_${stableId("", `${this.id}:${meta.id}:${payload.id ?? index}:${payload.type}`, 28)}`;
       const source = { agent: this.id, sessionId: meta.id, nativeId: payload.id ?? String(index) };
@@ -90,7 +91,7 @@ export class CodexAdapter extends Adapter {
         if (payload.role === "user" && hasVisibleUserEvents && !payload._agent_session_bridge) continue;
         const text = textFromContent(payload.content);
         if (!text) continue;
-        events.push(contentEvent({ id: eventId, timestamp: record.timestamp, role: payload.role ?? "assistant", text, source }));
+        events.push(contentEvent({ id: eventId, timestamp: record.timestamp, role: eventMarker.eventRole ?? payload.role ?? "assistant", text, source }));
       } else if (payload.type === "function_call") {
         let input = payload.arguments;
         try { input = JSON.parse(payload.arguments); } catch {}
@@ -140,7 +141,7 @@ export class CodexAdapter extends Adapter {
   }
 
   recordForEvent(session, event) {
-    const marker = { eventId: event.id, canonicalId: session.id };
+    const marker = { eventId: event.id, eventRole: event.role, canonicalId: session.id };
     if (event.kind === "tool_call") {
       return {
         timestamp: event.timestamp,
@@ -195,7 +196,7 @@ export class CodexAdapter extends Adapter {
           timestamp: session.createdAt,
           cwd: session.project.cwd,
           originator: "agent-session-bridge",
-          cli_version: "0.5.2",
+          cli_version: "0.5.4",
           source: "cli",
           model_provider: "openai",
           base_instructions: null,

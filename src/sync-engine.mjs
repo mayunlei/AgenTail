@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createHandoffCapsule, inferCommonBase, mergeSessions, mergeSessionsThreeWay, resolveSessionConflict, upgradeSession } from "./asif.mjs";
+import { createHandoffCapsule, inferCommonBase, mergeSessions, mergeSessionsThreeWay, reconcileEquivalentConflicts, resolveSessionConflict, upgradeSession } from "./asif.mjs";
 import { normalizeCapabilities, planProjection, projectSession } from "./conversion.mjs";
 import { fileSignature, iso, newCanonicalId, publicPath, writeJson } from "./util.mjs";
 
@@ -85,9 +85,9 @@ export class SyncEngine {
     return {
       product: {
         name: "Agentail",
-        version: "0.5.2",
+        version: "0.5.4",
         protocol: "ASIF/2",
-        slogan: { en: "Any agent. Same trail.", zh: "Agent 随心换，上下文不断。" },
+        slogan: { en: "Sync sessions across coding agents.", zh: "跨 Coding Agent，会话自动同步。" },
       },
       home: publicPath(this.store.root),
       config,
@@ -521,6 +521,58 @@ export class SyncEngine {
         unresolved: session.merge.conflicts.filter((conflict) => conflict.status === "unresolved").length,
         written: result.written,
         errors: result.errors,
+      };
+    } finally {
+      this.running = false;
+    }
+  }
+
+  async repairEquivalentConflicts({ apply = false } = {}) {
+    if (this.running) throw new Error("Wait for the current sync to finish before repairing conflicts.");
+    this.running = true;
+    try {
+      const [state, summaries] = await Promise.all([
+        this.store.state(),
+        this.store.listSessionSummaries(10_000),
+      ]);
+      const candidates = summaries.filter((session) => session.merge?.conflicts?.some((conflict) => conflict.status === "unresolved"));
+      const entries = [];
+      let resolvedCount = 0;
+      let unresolvedRemaining = 0;
+      for (const summary of candidates) {
+        const current = await this.store.loadSession(summary.id);
+        if (!current) continue;
+        const repaired = reconcileEquivalentConflicts(current);
+        const unresolved = repaired.session.merge.conflicts.filter((conflict) => conflict.status === "unresolved").length;
+        unresolvedRemaining += unresolved;
+        if (!repaired.resolvedCount) continue;
+        resolvedCount += repaired.resolvedCount;
+        entries.push({
+          canonicalId: current.id,
+          title: current.title,
+          resolved: repaired.resolvedCount,
+          unresolved,
+          conflictIds: repaired.resolvedIds,
+        });
+        if (apply) await this.store.saveSession(repaired.session);
+      }
+      if (apply && resolvedCount) {
+        state.stats.conflictsResolved += resolvedCount;
+        this.store.addActivity(state, {
+          level: "success",
+          action: "repair-conflicts",
+          message: `${resolvedCount} equivalent cross-agent conflict(s) were reconciled without changing event content.`,
+        });
+        state.stats.lastRunAt = iso();
+        await this.store.saveState(state);
+      }
+      return {
+        apply,
+        sessionsScanned: summaries.length,
+        sessionsMatched: entries.length,
+        conflictsResolved: resolvedCount,
+        unresolvedRemaining,
+        entries,
       };
     } finally {
       this.running = false;

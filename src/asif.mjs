@@ -484,6 +484,54 @@ export function resolveSessionConflict(input, conflictId, strategy = "both") {
   };
 }
 
+export function reconcileEquivalentConflicts(input, { at = iso() } = {}) {
+  const session = upgradeSession(input);
+  const resolvedAt = iso(at);
+  const resolvedIds = [];
+  const conflicts = (session.merge?.conflicts ?? []).map((conflict) => {
+    if (conflict.status !== "unresolved") return conflict;
+    const events = (conflict.variants ?? []).map((variant) => variant.event).filter(Boolean);
+    if (events.length < 2 || !events.slice(1).every((event) => sameEventSemantics(events[0], event))) return conflict;
+    resolvedIds.push(conflict.id);
+    const selected = conflict.variants.find((variant) => variant.side === "current") ?? conflict.variants[0];
+    return {
+      ...conflict,
+      status: "resolved",
+      resolution: {
+        strategy: "equivalent",
+        selectedVariantIds: selected?.id ? [selected.id] : [],
+        resolvedAt,
+        automatic: true,
+        reason: "Equivalent after cross-agent transport normalization.",
+      },
+    };
+  });
+  if (!resolvedIds.length) return { session, resolvedCount: 0, resolvedIds: [] };
+  const unresolved = conflicts.some((conflict) => conflict.status === "unresolved");
+  return {
+    session: {
+      ...session,
+      revision: createRevision(session.id, session.revision.number + 1, [session.revision.id], resolvedAt, {
+        kind: "equivalent-conflict-repair",
+        conflictIds: resolvedIds,
+      }),
+      updatedAt: resolvedAt,
+      merge: normalizeMerge({
+        ...session.merge,
+        conflicts,
+        status: unresolved ? "conflicted" : "resolved",
+        lastMergedAt: resolvedAt,
+      }),
+      extensions: {
+        ...session.extensions,
+        equivalentConflictRepair: { at: resolvedAt, resolvedIds },
+      },
+    },
+    resolvedCount: resolvedIds.length,
+    resolvedIds,
+  };
+}
+
 export function buildPortableState(session = {}) {
   const events = session.events ?? [];
   const messages = events.filter((event) => event.kind === "message" && event.text?.trim());
@@ -637,24 +685,56 @@ function normalizeMerge(merge = {}) {
 
 function sameEventSemantics(left, right) {
   if (!left || !right) return false;
-  return sha256(JSON.stringify(eventSemanticShape(left))) === sha256(JSON.stringify(eventSemanticShape(right)));
+  if (left.id && right.id && left.id !== right.id) return false;
+  const leftShape = eventSemanticShape(left);
+  const rightShape = eventSemanticShape(right);
+  if (sha256(JSON.stringify(leftShape)) === sha256(JSON.stringify(rightShape))) return true;
+  if (!isLossyRolePair(left, right)) return false;
+  return sha256(JSON.stringify({ ...leftShape, role: "assistant" }))
+    === sha256(JSON.stringify({ ...rightShape, role: "assistant" }));
 }
 
 function eventSemanticShape(event) {
+  const kind = legacyKind(event);
+  const callId = normalizePortableCallId(event.callId ?? event.tool?.callId ?? event.result?.callId);
+  const isError = kind === "tool_result" ? Boolean(event.isError ?? event.result?.isError) : event.isError;
   return {
-    type: event.type,
-    kind: event.kind,
+    kind,
     role: event.role,
     text: event.text,
-    content: event.content,
-    tool: event.tool,
-    result: event.result,
+    content: normalizeSemanticValue(event.content),
+    tool: event.tool ? normalizeSemanticValue({ ...event.tool, callId }) : undefined,
+    result: event.result ? normalizeSemanticValue({ ...event.result, callId, isError: Boolean(event.result.isError ?? event.isError) }) : undefined,
     name: event.name,
-    callId: event.callId,
-    input: event.input,
-    isError: event.isError,
-    parentIds: event.parentIds ?? [],
+    callId,
+    input: normalizeSemanticValue(event.input),
+    isError,
   };
+}
+
+function isLossyRolePair(left, right) {
+  if (legacyKind(left) !== "message" || legacyKind(right) !== "message") return false;
+  const pair = new Set([left.role, right.role]);
+  if (!pair.has("assistant") || !["developer", "system"].some((role) => pair.has(role))) return false;
+  const assistantEvent = left.role === "assistant" ? left : right;
+  const agent = assistantEvent.source?.agent ?? assistantEvent.provenance?.source?.agent;
+  return ["claude", "opencode", "qoder"].includes(agent);
+}
+
+function normalizePortableCallId(value) {
+  if (typeof value !== "string") return value;
+  const match = value.match(/^(?:call_|toolu_)([a-z0-9-]{12,})$/i);
+  return match ? match[1] : value;
+}
+
+function normalizeSemanticValue(value, key = "") {
+  if (Array.isArray(value)) return value.map((item) => normalizeSemanticValue(item));
+  if (!value || typeof value !== "object") {
+    if (["callId", "call_id", "tool_use_id"].includes(key)) return normalizePortableCallId(value);
+    if (["isError", "is_error"].includes(key)) return Boolean(value);
+    return value;
+  }
+  return Object.fromEntries(Object.keys(value).sort().map((itemKey) => [itemKey, normalizeSemanticValue(value[itemKey], itemKey)]));
 }
 
 function semanticRank(event) {

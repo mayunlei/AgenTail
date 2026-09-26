@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ASIF_SCHEMA, createHandoffCapsule, createSession, mergeSessions, mergeSessionsThreeWay, resolveSessionConflict, validateSession } from "../src/asif.mjs";
+import { ASIF_SCHEMA, createHandoffCapsule, createSession, mergeSessions, mergeSessionsThreeWay, reconcileEquivalentConflicts, resolveSessionConflict, validateSession } from "../src/asif.mjs";
 
 test("ASIF validates and merges by stable event id", () => {
   const base = createSession({
@@ -126,4 +126,75 @@ test("three-way merge records conflicting edits and resolution keeps an audit ev
   assert.equal(incomingSelected.events.find((event) => event.id === "evt_shared").text, "Claude answer");
   assert.equal(incomingSelected.events.filter((event) => event.kind === "message").length, 1);
   assert.equal(incomingSelected.merge.conflicts[0].resolution.strategy, "incoming");
+});
+
+test("three-way merge ignores cross-agent transport-only event differences", () => {
+  const id = "11111111-1111-4111-8111-666666666666";
+  const base = createSession({ id, origin: { agent: "codex", sessionId: "source" }, cwd: "/tmp/project", events: [] });
+  const cases = [
+    {
+      current: { id: "evt_error", kind: "tool_result", role: "tool", text: "done", callId: "call_error_fixture", isError: false, source: { agent: "codex", sessionId: "source" } },
+      incoming: { id: "evt_error", kind: "tool_result", role: "tool", text: "done", callId: "call_error_fixture", source: { agent: "claude", sessionId: "target" } },
+    },
+    {
+      current: { id: "evt_role", kind: "message", role: "developer", text: "Preserve these instructions", source: { agent: "codex", sessionId: "source" } },
+      incoming: { id: "evt_role", kind: "message", role: "assistant", text: "Preserve these instructions", source: { agent: "claude", sessionId: "target" } },
+    },
+    {
+      current: { id: "evt_call", kind: "tool_result", role: "tool", text: "same output", callId: "toolu_1234567890abcdef", source: { agent: "claude", sessionId: "source" } },
+      incoming: { id: "evt_call", kind: "tool_result", role: "tool", text: "same output", callId: "call_1234567890abcdef", source: { agent: "qoder", sessionId: "target" } },
+    },
+    {
+      current: { id: "evt_parent", kind: "message", role: "assistant", text: "same answer", parentIds: ["evt_left"], source: { agent: "codex", sessionId: "source" } },
+      incoming: { id: "evt_parent", kind: "message", role: "assistant", text: "same answer", parentIds: ["evt_right"], source: { agent: "claude", sessionId: "target" } },
+    },
+  ];
+  for (const item of cases) {
+    const current = createSession({ id, origin: item.current.source, cwd: "/tmp/project", events: [item.current] });
+    const incoming = createSession({ id, origin: item.incoming.source, cwd: "/tmp/project", events: [item.incoming] });
+    const result = mergeSessionsThreeWay(base, current, incoming, { source: item.incoming.source });
+    assert.equal(result.detectedConflicts, 0, item.current.id);
+    assert.equal(result.session.merge.conflicts.length, 0, item.current.id);
+    assert.equal(result.session.events[0].role, item.current.role, item.current.id);
+  }
+});
+
+test("equivalent conflict repair keeps canonical content and records an audit resolution", () => {
+  const session = createSession({
+    id: "11111111-1111-4111-8111-777777777777",
+    origin: { agent: "codex", sessionId: "source" },
+    cwd: "/tmp/project",
+    events: [{ id: "evt_shared", kind: "message", role: "developer", text: "Same payload", source: { agent: "codex", sessionId: "source" } }],
+  });
+  const currentEvent = session.events[0];
+  const incomingEvent = createSession({
+    id: session.id,
+    origin: { agent: "claude", sessionId: "target" },
+    cwd: "/tmp/project",
+    events: [{ id: "evt_shared", kind: "message", role: "assistant", text: "Same payload", source: { agent: "claude", sessionId: "target" } }],
+  }).events[0];
+  const conflicted = {
+    ...session,
+    merge: {
+      ...session.merge,
+      status: "conflicted",
+      conflicts: [{
+        id: "conflict_transport",
+        kind: "event-id-collision",
+        status: "unresolved",
+        eventId: "evt_shared",
+        variants: [
+          { id: "variant_current", side: "current", agent: "codex", event: currentEvent },
+          { id: "variant_incoming", side: "incoming", agent: "claude", event: incomingEvent },
+        ],
+      }],
+    },
+  };
+  const repaired = reconcileEquivalentConflicts(conflicted, { at: "2026-09-21T00:00:00.000Z" });
+  assert.equal(repaired.resolvedCount, 1);
+  assert.equal(repaired.session.events.length, 1);
+  assert.equal(repaired.session.events[0].role, "developer");
+  assert.equal(repaired.session.merge.status, "resolved");
+  assert.equal(repaired.session.merge.conflicts[0].resolution.strategy, "equivalent");
+  assert.equal(repaired.session.merge.conflicts[0].resolution.automatic, true);
 });

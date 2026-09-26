@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.4 — 2026-09-24
+
+- Replaced the abstract slogan with the direct product promise: “Sync sessions across coding agents.” / “跨 Coding Agent，会话自动同步。”
+- Added Report issue entry points to the menu bar panel and detailed ledger.
+- GitHub issue drafts now include safe runtime and continuity diagnostics without session content, project names, paths, or command output.
+
+## 0.5.3 — 2026-09-21
+
+- Normalized harmless cross-agent differences in error flags and generated tool-call ID prefixes before merge comparison.
+- Preserved developer and system message roles in bridge markers for lossy native transcript formats.
+- Treated target-side role flattening and causal-link rewrites as transport metadata instead of concurrent content edits.
+- Added a reversible `asb repair conflicts [--apply]` migration for existing false-positive conflicts.
+
 ## 0.5.2 — 2026-09-20
 
 - Replaced repeated full canonical-session reads with a compact persistent summary index.

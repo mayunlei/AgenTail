@@ -59,6 +59,26 @@ test("OpenCode export uses the official import envelope", async () => {
   assert.ok(data.messages.every((message) => message.parts.every((part) => part.sessionID === data.info.id)));
 });
 
+for (const [name, makeAdapter] of [
+  ["Claude Code", (root) => new ClaudeAdapter({ root: path.join(root, "claude") })],
+  ["Qoder", (root) => new QoderAdapter({ root: path.join(root, "qoder") })],
+]) {
+  test(`${name} bridge marker preserves developer roles across native round trips`, async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "asb-role-roundtrip-"));
+    const session = createSession({
+      id: "22222222-2222-4222-8222-333333333333",
+      origin: { agent: "codex", sessionId: "source" },
+      cwd: path.join(root, "project"),
+      events: [{ id: "evt_developer", kind: "message", role: "developer", text: "Keep the original role" }],
+    });
+    const adapter = makeAdapter(root);
+    await adapter.write(session);
+    const [descriptor] = await adapter.discover({ historyDays: 3650 });
+    const parsed = await adapter.read(descriptor);
+    assert.equal(parsed.events[0].role, "developer");
+  });
+}
+
 test("OpenCode discovery caches the expensive CLI session listing", async () => {
   let calls = 0;
   const adapter = new OpenCodeAdapter({ dataRoot: "/tmp/nonexistent-agentail-opencode" });

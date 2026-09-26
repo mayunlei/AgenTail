@@ -79,6 +79,7 @@ export class ClaudeAdapter extends Adapter {
       for (const [blockIndex, block] of blocks.entries()) {
         const fallbackId = `evt_${stableId("", `${this.id}:${sessionId}:${record.uuid ?? recordIndex}:${blockIndex}`, 28)}`;
         const id = block.agentSessionBridge?.eventId ?? record.agentSessionBridge?.eventId ?? fallbackId;
+        const eventMarker = block.agentSessionBridge ?? record.agentSessionBridge ?? {};
         const source = { agent: this.id, sessionId, nativeId: record.uuid ?? String(recordIndex) };
         if (block.type === "tool_use") {
           events.push(contentEvent({ id, timestamp: record.timestamp, kind: "tool_call", role: "assistant", text: block.name, name: block.name, callId: block.id, input: block.input, source }));
@@ -86,7 +87,7 @@ export class ClaudeAdapter extends Adapter {
           events.push(contentEvent({ id, timestamp: record.timestamp, kind: "tool_result", role: "tool", text: textFromContent(block.content), callId: block.tool_use_id, isError: block.is_error, source }));
         } else {
           const text = block.text ?? (typeof block === "string" ? block : "");
-          if (text) events.push(contentEvent({ id, timestamp: record.timestamp, role: record.message.role ?? record.type, text, source }));
+          if (text) events.push(contentEvent({ id, timestamp: record.timestamp, role: eventMarker.eventRole ?? record.message.role ?? record.type, text, source }));
         }
       }
     }
@@ -108,7 +109,7 @@ export class ClaudeAdapter extends Adapter {
 
   recordForEvent(session, event, parentUuid) {
     const uuid = uuidFrom(`claude:${session.id}:${event.id}`);
-    const marker = { ...bridgeMarker(session), eventId: event.id };
+    const marker = { ...bridgeMarker(session), eventId: event.id, eventRole: event.role };
     const common = {
       parentUuid: parentUuid ?? null,
       isSidechain: false,

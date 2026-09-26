@@ -181,6 +181,49 @@ test("Agentail persists a shared Chinese or English interface language", async (
   assert.equal((await store.saveConfig({ language: "unsupported" })).language, "zh-CN");
 });
 
+test("equivalent conflict repair previews and applies without adding session events", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "agentail-conflict-repair-"));
+  const store = await new BridgeStore(path.join(root, "state")).initialize();
+  const base = createSession({
+    id: "55555555-eeee-4eee-8eee-555555555555",
+    origin: { agent: "codex", sessionId: "source" },
+    cwd: path.join(root, "project"),
+    events: [{ id: "evt_shared", kind: "tool_result", role: "tool", text: "done", callId: "call_same_identifier", isError: false, source: { agent: "codex", sessionId: "source" } }],
+  });
+  const incoming = createSession({
+    id: base.id,
+    origin: { agent: "claude", sessionId: "target" },
+    cwd: base.project.cwd,
+    events: [{ id: "evt_shared", kind: "tool_result", role: "tool", text: "done", callId: "call_same_identifier", source: { agent: "claude", sessionId: "target" } }],
+  }).events[0];
+  base.merge = {
+    ...base.merge,
+    status: "conflicted",
+    conflicts: [{
+      id: "conflict_equivalent",
+      kind: "event-id-collision",
+      status: "unresolved",
+      eventId: "evt_shared",
+      variants: [
+        { id: "variant_current", side: "current", agent: "codex", event: base.events[0] },
+        { id: "variant_incoming", side: "incoming", agent: "claude", event: incoming },
+      ],
+    }],
+  };
+  await store.saveSession(base);
+  const engine = await new SyncEngine({ store, adapters: new Map() }).initialize();
+  const preview = await engine.repairEquivalentConflicts();
+  assert.equal(preview.apply, false);
+  assert.equal(preview.conflictsResolved, 1);
+  assert.equal((await store.loadSession(base.id)).merge.conflicts[0].status, "unresolved");
+  const applied = await engine.repairEquivalentConflicts({ apply: true });
+  assert.equal(applied.conflictsResolved, 1);
+  const repaired = await store.loadSession(base.id);
+  assert.equal(repaired.events.length, 1);
+  assert.equal(repaired.merge.conflicts[0].status, "resolved");
+  assert.equal((await store.state()).stats.conflictsResolved, 1);
+});
+
 test("two native paths with the same source session id converge on one canonical session", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "agentail-source-identity-"));
   const store = new BridgeStore(path.join(root, "state"));

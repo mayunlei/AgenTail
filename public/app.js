@@ -1,14 +1,16 @@
+import { createIssueReportUrl } from "./report-issue.js";
+
 const ui = Object.fromEntries([
   "health", "language", "sync-enabled", "sync-now", "live-title", "live-detail", "agent-grid", "source-agent",
   "session-list", "refresh-sessions", "history-days", "poll-seconds", "content-policy", "activity-list",
   "last-run", "toast", "continuity-score", "continuity-badge", "continuity-title", "continuity-detail",
   "continuity-bar", "signal-agents", "signal-sessions", "signal-verified", "signal-attention",
-  "attention-panel", "attention-title", "attention-detail", "canonical-list", "ledger-path",
+  "attention-panel", "attention-title", "attention-detail", "canonical-list", "ledger-path", "report-issue",
 ].map((id) => [camel(id), document.querySelector(`#${id}`)]));
 
 const messages = {
   "zh-CN": {
-    slogan: "Agent 随心换，上下文不断。", language: "语言", localOnly: "仅本机", connecting: "连接本地服务",
+    slogan: "跨 Coding Agent，会话自动同步。", reportIssue: "报告问题", language: "语言", localOnly: "仅本机", connecting: "连接本地服务",
     goldenMetric: "已验证连续性 · 黄金指标", loading: "正在读取", continuityQuestion: "你的工作是否能在每个 Agent 中继续？",
     checkingContinuity: "Agentail 正在核对会话与目标端。", selectedDetected: "已选 / 已检测", continuousSessions: "连续会话",
     lastVerified: "上次验证", never: "尚未", needsAttention: "需要处理", autoGuard: "自动守护", liveSync: "实时同步",
@@ -54,7 +56,7 @@ const messages = {
     hoursAgo: "{count} 小时前", daysAgo: "{count} 天前",
   },
   en: {
-    slogan: "Any agent. Same trail.", language: "Language", localOnly: "Local only", connecting: "Connecting to local service",
+    slogan: "Sync sessions across coding agents.", reportIssue: "Report issue", language: "Language", localOnly: "Local only", connecting: "Connecting to local service",
     goldenMetric: "Verified continuity · North-star metric", loading: "Loading", continuityQuestion: "Can your work continue in every agent?",
     checkingContinuity: "Agentail is checking sessions against their targets.", selectedDetected: "Selected / detected", continuousSessions: "Continuous sessions",
     lastVerified: "Last verified", never: "Never", needsAttention: "Needs attention", autoGuard: "Automatic guard", liveSync: "Live sync",
@@ -158,6 +160,7 @@ function renderStatus(status) {
   ui.historyDays.value = status.config.historyDays;
   ui.pollSeconds.value = Math.round(status.config.pollIntervalMs / 1000);
   ui.ledgerPath.textContent = status.home;
+  ui.reportIssue.href = createIssueReportUrl(status, { platform: navigator.userAgent });
   renderContinuity(status.continuity);
   renderAgents(status.agents);
   renderPolicy(status.config.contentPolicy);

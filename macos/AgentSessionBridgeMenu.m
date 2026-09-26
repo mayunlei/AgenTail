@@ -46,6 +46,73 @@ static BOOL IsEnglish(NSDictionary *status) {
 
 static NSString *L(BOOL english, NSString *zh, NSString *en) { return english ? en : zh; }
 
+static NSURL *IssueReportURL(NSDictionary *status) {
+    BOOL english = IsEnglish(status);
+    NSDictionary *product = status[@"product"] ?: @{};
+    NSDictionary *config = status[@"config"] ?: @{};
+    NSDictionary *continuity = status[@"continuity"] ?: @{};
+    NSDictionary *stats = status[@"stats"] ?: @{};
+    NSMutableArray *selectedAgents = [NSMutableArray array];
+    NSMutableArray *detectedAgents = [NSMutableArray array];
+    for (NSDictionary *agent in status[@"agents"] ?: @[]) {
+        NSString *name = agent[@"name"] ?: agent[@"id"] ?: @"unknown";
+        if ([agent[@"selected"] boolValue]) [selectedAgents addObject:name];
+        if ([agent[@"detected"] boolValue]) [detectedAgents addObject:name];
+    }
+    NSString *selected = selectedAgents.count ? [selectedAgents componentsJoinedByString:@", "] : @"none";
+    NSString *detected = detectedAgents.count ? [detectedAgents componentsJoinedByString:@", "] : @"none";
+    NSString *version = product[@"version"] ?: @"unknown";
+#if defined(__arm64__)
+    NSString *architecture = @"arm64";
+#elif defined(__x86_64__)
+    NSString *architecture = @"x86_64";
+#else
+    NSString *architecture = @"unknown";
+#endif
+    NSString *platform = [NSString stringWithFormat:@"%@ (%@)", NSProcessInfo.processInfo.operatingSystemVersionString, architecture];
+    NSArray *lines = english ? @[
+        @"## What happened?",
+        @"<!-- Describe the problem. Please do not include secrets or private session content. -->",
+        @"", @"## Expected behavior", @"<!-- What should Agentail have done? -->",
+        @"", @"## Steps to reproduce", @"1. ",
+        @"", @"## Automatic diagnostics",
+        [NSString stringWithFormat:@"- Agentail: %@", version],
+        [NSString stringWithFormat:@"- Protocol: %@", product[@"protocol"] ?: @"unknown"],
+        [NSString stringWithFormat:@"- Platform: %@", platform],
+        [NSString stringWithFormat:@"- Language: %@", config[@"language"] ?: @"unknown"],
+        [NSString stringWithFormat:@"- Live sync: %@", [config[@"syncEnabled"] boolValue] ? @"enabled" : @"disabled"],
+        [NSString stringWithFormat:@"- Selected agents: %@", selected],
+        [NSString stringWithFormat:@"- Detected agents: %@", detected],
+        [NSString stringWithFormat:@"- Continuity: %@; verified %@%%; conflicts %@; attention %@", continuity[@"status"] ?: @"unknown", continuity[@"verifiedRate"] ?: @"n/a", continuity[@"conflicts"] ?: @0, continuity[@"attention"] ?: @0],
+        [NSString stringWithFormat:@"- Counters: runs %@; errors %@; conflicts detected/resolved %@/%@", stats[@"syncRuns"] ?: @0, stats[@"errors"] ?: @0, stats[@"conflictsDetected"] ?: @0, stats[@"conflictsResolved"] ?: @0],
+        [NSString stringWithFormat:@"- Last run: %@", stats[@"lastRunAt"] ?: @"never"],
+        @"", @"> Privacy: Agentail did not attach session text, project names, file paths, or command output.",
+    ] : @[
+        @"## 发生了什么？",
+        @"<!-- 请描述问题。请勿填写密钥或私有会话内容。 -->",
+        @"", @"## 预期行为", @"<!-- Agentail 原本应该怎样工作？ -->",
+        @"", @"## 复现步骤", @"1. ",
+        @"", @"## 自动诊断",
+        [NSString stringWithFormat:@"- Agentail：%@", version],
+        [NSString stringWithFormat:@"- 协议：%@", product[@"protocol"] ?: @"unknown"],
+        [NSString stringWithFormat:@"- 平台：%@", platform],
+        [NSString stringWithFormat:@"- 语言：%@", config[@"language"] ?: @"unknown"],
+        [NSString stringWithFormat:@"- 实时同步：%@", [config[@"syncEnabled"] boolValue] ? @"已开启" : @"已关闭"],
+        [NSString stringWithFormat:@"- 已选 Agent：%@", selected],
+        [NSString stringWithFormat:@"- 已检测 Agent：%@", detected],
+        [NSString stringWithFormat:@"- 连续性：%@；已验证 %@%%；冲突 %@；需处理 %@", continuity[@"status"] ?: @"unknown", continuity[@"verifiedRate"] ?: @"n/a", continuity[@"conflicts"] ?: @0, continuity[@"attention"] ?: @0],
+        [NSString stringWithFormat:@"- 计数：运行 %@；错误 %@；冲突发现/解决 %@/%@", stats[@"syncRuns"] ?: @0, stats[@"errors"] ?: @0, stats[@"conflictsDetected"] ?: @0, stats[@"conflictsResolved"] ?: @0],
+        [NSString stringWithFormat:@"- 上次运行：%@", stats[@"lastRunAt"] ?: @"从未"],
+        @"", @"> 隐私说明：Agentail 未附带会话正文、项目名称、文件路径或命令输出。",
+    ];
+    NSURLComponents *components = [NSURLComponents componentsWithString:@"https://github.com/mayunlei/AgenTail/issues/new"];
+    components.queryItems = @[
+        [NSURLQueryItem queryItemWithName:@"title" value:[NSString stringWithFormat:@"[Bug] Agentail %@ — ", version]],
+        [NSURLQueryItem queryItemWithName:@"body" value:[lines componentsJoinedByString:@"\n"]],
+    ];
+    return components.URL;
+}
+
 static NSString *ContinuityTitle(NSString *state, BOOL english) {
     if ([state isEqualToString:@"healthy"]) return L(english, @"工作已连续", @"Work is continuous");
     if ([state isEqualToString:@"attention"]) return L(english, @"有会话需要处理", @"Sessions need attention");
@@ -146,7 +213,7 @@ static NSString *LocalizedErrorMessage(NSError *error, BOOL english) {
     copy.alignment = NSLayoutAttributeLeading;
     copy.spacing = 1;
     [copy addArrangedSubview:Label(@"Agentail", 13, NSFontWeightSemibold, nil)];
-    [copy addArrangedSubview:Label(L(english, @"Agent 随心换，上下文不断。", @"Any agent. Same trail."), 9, NSFontWeightMedium, NSColor.secondaryLabelColor)];
+    [copy addArrangedSubview:Label(L(english, @"跨 Coding Agent，会话自动同步。", @"Sync sessions across coding agents."), 9, NSFontWeightMedium, NSColor.secondaryLabelColor)];
     self.connectionLabel = Label(self.status ? L(english, @"本地服务已连接", @"Local service connected") : L(english, @"正在连接本地服务", @"Connecting to local service"), 9, NSFontWeightRegular, NSColor.tertiaryLabelColor);
     [copy addArrangedSubview:self.connectionLabel];
     [row addArrangedSubview:mark];
@@ -304,11 +371,14 @@ static NSString *LocalizedErrorMessage(NSError *error, BOOL english) {
     NSButton *details = [NSButton buttonWithTitle:L(english, @"打开详细账本…", @"Open detailed ledger…") target:self action:@selector(openDashboard:)];
     details.bezelStyle = NSBezelStyleInline;
     details.contentTintColor = NSColor.controlAccentColor;
+    NSButton *report = [NSButton buttonWithTitle:L(english, @"报告问题 ↗", @"Report issue ↗") target:self action:@selector(reportIssue:)];
+    report.bezelStyle = NSBezelStyleInline;
     NSButton *language = [NSButton buttonWithTitle:english ? @"中文" : @"English" target:self action:@selector(toggleLanguage:)];
     language.bezelStyle = NSBezelStyleInline;
     NSButton *quit = [NSButton buttonWithTitle:L(english, @"退出", @"Quit") target:self action:@selector(quit:)];
     quit.bezelStyle = NSBezelStyleInline;
     [row addArrangedSubview:details];
+    [row addArrangedSubview:report];
     [row addArrangedSubview:[self spacer]];
     [row addArrangedSubview:language];
     [row addArrangedSubview:quit];
@@ -347,6 +417,7 @@ static NSString *LocalizedErrorMessage(NSError *error, BOOL english) {
 - (void)toggleLanguage:(__unused id)sender { [self patchConfig:@{ @"language": IsEnglish(self.status) ? @"zh-CN" : @"en" }]; }
 - (void)retry:(__unused id)sender { self.notice = nil; [self refresh]; }
 - (void)openDashboard:(__unused id)sender { [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"http://%@:%ld", ASBBaseHost, (long)self.port]]]; }
+- (void)reportIssue:(__unused id)sender { [[NSWorkspace sharedWorkspace] openURL:IssueReportURL(self.status)]; }
 - (void)quit:(__unused id)sender { [NSApp terminate:nil]; }
 
 - (void)request:(NSString *)path method:(NSString *)method body:(NSDictionary *)body completion:(void (^)(NSDictionary *, NSError *))completion {
@@ -394,7 +465,7 @@ static NSString *LocalizedErrorMessage(NSError *error, BOOL english) {
                                                              styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable)
                                                                backing:NSBackingStoreBuffered
                                                                  defer:NO];
-        debugWindow.title = @"Agentail — Any agent. Same trail.";
+        debugWindow.title = @"Agentail — Sync sessions across coding agents.";
         debugWindow.contentViewController = debugPanel;
         debugWindow.releasedWhenClosed = NO;
         self.debugWindow = debugWindow;
@@ -430,7 +501,7 @@ static NSString *LocalizedErrorMessage(NSError *error, BOOL english) {
     [icon.widthAnchor constraintEqualToConstant:52].active = YES;
     [icon.heightAnchor constraintEqualToConstant:52].active = YES;
     NSTextField *title = Label(@"Agentail", 22, NSFontWeightBold, nil);
-    NSTextField *slogan = Label(@"Any agent. Same trail.\nAgent 随心换，上下文不断。", 13, NSFontWeightSemibold, NSColor.controlAccentColor);
+    NSTextField *slogan = Label(@"Sync sessions across coding agents.\n跨 Coding Agent，会话自动同步。", 13, NSFontWeightSemibold, NSColor.controlAccentColor);
     slogan.maximumNumberOfLines = 2;
     slogan.lineBreakMode = NSLineBreakByWordWrapping;
     slogan.alignment = NSTextAlignmentCenter;

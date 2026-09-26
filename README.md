@@ -1,13 +1,117 @@
 # Agentail
 
-> **Any agent. Same trail.**
+[简体中文](README.md) | [English](README_EN.md)
+
+> **Sync sessions across coding agents.**
 >
-> **Agent 随心换，上下文不断。**
+> **跨 Coding Agent，会话自动同步。**
 
 [![Release](https://img.shields.io/github/v/release/mayunlei/AgenTail)](https://github.com/mayunlei/AgenTail/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Agentail 是一个本地优先的 coding-agent 会话连续性工具。它把 Codex、Claude Code、OpenCode、Qoder 的本地 session 转成公共的 **ASIF/2**（Agent Session Interchange Format），再根据目标 Agent 的真实能力选择官方导入、结构化写入、文本兼容或通用交接包。
+Agentail 让你在 Codex 中开始工作，切换到 Claude Code、OpenCode 或 Qoder 后，仍能沿着同一条会话继续。它自动发现本机会话、同步新增内容、处理并行修改，并验证目标 Agent 是否真的写入成功。
+
+它不只是导出聊天文本。Agentail 会尽可能保留任务目标、消息、工具调用与结果、文件改动线索、命令与测试、关键决策和下一步，让另一个 Agent 接手时知道“已经做了什么、为什么这样做、接下来做什么”。
+
+> 典型场景：你在 Codex 中完成了一半的功能，因为额度、模型能力或工具差异切换到 Claude Code。Agentail 将这段工作投影为 Claude Code 可读取的本地会话；之后两边继续产生的新内容，也可以同步回其他已选择的 Agent。
+
+## 为什么需要 Agentail
+
+每个 Coding Agent 都有自己的会话目录、事件结构和能力边界。直接复制粘贴通常只能搬走可见文字，却会丢失工具轨迹、因果关系、分支、来源和同步状态；直接改写另一个工具的内部数据库，又容易因为版本变化而损坏会话。
+
+Agentail 在中间增加一层稳定、可审计的会话协议：
+
+| 当你遇到…… | Agentail 提供…… |
+| --- | --- |
+| 想换一个 Agent 继续当前任务 | 将同一会话投影到目标 Agent 的本地会话格式 |
+| 已经有很多历史会话 | 发现并一次性导入已有会话，之后再做增量同步 |
+| 两个 Agent 同时继续了同一会话 | 按共同基线做三方合并；可合并内容自动汇合，真正冲突明确标出 |
+| 目标 Agent 不支持某种事件 | 按能力自动降级，并显示保真度和丢失项，而不是静默丢数据 |
+| 文件写入了，但不确定目标能否读取 | 写入后回读验证；未通过验证不会标成同步成功 |
+| 不希望会话上传到第三方服务 | 默认仅在本机运行，控制服务只监听 `127.0.0.1` |
+
+## 核心产品能力
+
+### 跨 Agent 连续工作
+
+- 在 Codex、Claude Code、OpenCode 和 Qoder 之间迁移或持续同步会话。
+- 以项目和原生会话 ID 识别同一条工作轨迹，避免反复导入产生重复会话。
+- 支持一次性迁移，也支持选中多个 Agent 后自动同步后续新增事件。
+
+### 不只同步聊天记录
+
+Agentail 的公共中间格式 ASIF/2 可以表达：
+
+- 用户与 Assistant 消息；
+- 工具调用、工具结果和错误；
+- 任务目标、状态与最近工作摘要；
+- 涉及的文件、执行过的命令和测试结果；
+- 决策、待办、来源、因果父事件、修订版本与分支信息。
+
+目标 Agent 能原生表达的内容会结构化写入；不能表达的内容会转换为明确标记的历史文本、摘要或独立 Handoff Capsule。
+
+### 自动增量同步
+
+- 首次启用采用“先建立基线，再同步新增内容”的策略，避免一开启就把所有旧会话批量复制到每个 Agent。
+- 可以选择只同步消息，或同时同步工具轨迹。
+- 使用稳定事件身份、修订号、去重和回声抑制，避免 Agentail 自己写入的内容被再次发现并无限循环。
+- 单个 Agent 写入失败不会阻塞其他目标，失败原因会留在同步账本中。
+
+### 并行修改与三方合并
+
+同一会话在两个 Agent 中继续后，Agentail 不会简单采用“最后写入覆盖”。它把共同版本视为基线，把两边视为分支：
+
+- 两边各自追加的事件会自动合并；
+- 只在一边发生的修改会保留；
+- 同一事件被两边改成不同内容时，会生成可见冲突，保留两个版本供确认；
+- 合并结果继续保留来源和修订关系，后续同步仍可追踪。
+
+### 能力协商与可解释降级
+
+不同 Agent 并不具备相同的导入接口。Agentail 会按目标能力选择转换路径：
+
+1. **官方导入**：优先使用目标 Agent 提供的 import/export CLI。
+2. **结构化原生写入**：保留消息、工具调用和结果等结构。
+3. **原生文本记录**：把不支持的结构转换为不可执行的历史文本。
+4. **Handoff Capsule**：当目标不可写时，生成通用 JSON 和 Markdown 交接包。
+
+每次转换都会记录精确保留、字段映射、扁平化、摘要和省略数量，并分别评估语义、工具、因果和附件保真度。
+
+### 写入后回读验证
+
+“写入命令成功”不等于“目标 Agent 可以继续”。Agentail 会重新读取目标会话，核对预期事件是否存在。界面只把通过回读的目标标为已验证；能力不足、过期、冲突和失败会分别显示。
+
+### 本地可控、状态可见
+
+- macOS 菜单栏是日常入口：查看运行状态、最近同步、冲突和失败，启停服务或打开详情。
+- 本地详情页展示每个会话同步到了哪些 Agent、最后同步时间、验证结果和转换保真度。
+- 支持中英文界面。
+- “Report Issue” 会打开预填的 GitHub Issue；诊断信息默认不包含会话正文、项目名、文件路径、命令输出或其他敏感内容。
+
+## 工作原理
+
+Agentail 不为每一对 Agent 编写一套两两转换器，而是以 ASIF/2 作为稳定中间层：
+
+```text
+Codex ───────┐                              ┌─────── Codex
+Claude Code ─┤                              ├─────── Claude Code
+OpenCode ────┼─> 原生适配器 ─> ASIF/2 ─> 能力协商 ┼─────── OpenCode
+Qoder ───────┘          │        │          └─────── Qoder
+                        │        ├─ 修订与三方合并
+                        │        ├─ 去重与回声抑制
+                        │        └─ 保真度与回读验证
+                        └─ 本地同步账本
+```
+
+增加一个新 Agent 时，只需要实现“原生格式 ↔ ASIF/2”的适配，而不需要为所有已有 Agent 重新开发转换组合。
+
+## 适合的使用场景
+
+- 因额度、速度、模型能力或工具支持临时切换 Coding Agent。
+- 团队成员偏好不同 Agent，但需要交接同一个项目的工作上下文。
+- 把历史会话迁移到另一个 Agent，减少重新解释项目和决策的时间。
+- 在两个 Agent 中探索不同实现，再把各自追加的工作轨迹合并回来。
+- 某个 Agent 暂时不可用时，生成通用交接包继续工作。
 
 ## 快速安装（macOS）
 
@@ -34,9 +138,9 @@ node ~/.local/share/agentail/current/bin/agent-session-bridge.mjs app uninstall
 
 所有版本和校验文件也可以从 [GitHub Releases](https://github.com/mayunlei/AgenTail/releases) 手动下载。
 
-## 产品目标
+## 界面首先回答什么
 
-面板不再把“扫描了多少次”当成功，而是围绕一个黄金指标：**已验证连续性**。
+面板不把“扫描了多少次”或“执行了多少次写入”当成成功，而是围绕一个黄金指标：**已验证连续性**。
 
 > 已在目标端真实回读的会话投影 ÷ 所有已选 Agent 应拥有的会话投影
 
@@ -47,33 +151,16 @@ node ~/.local/share/agentail/current/bin/agent-session-bridge.mjs app uninstall
 - 每个 Agent 使用哪种转换路径，是否支持结构化工具调用与原生续接；
 - 最后一次验证时间，以及唯一需要采取的下一步。
 
-## 已实现
+## 当前支持范围
 
-- **ASIF/2 事件图**：稳定事件 ID、turn、branch、parent、revision、lineage、provenance 与 portability 元数据。
-- **可移植工作状态**：目标、最新状态、涉及文件、命令、测试结果、决策和下一步，可用于恢复而不只用于“看聊天记录”。
-- **能力协商**：Adapter 暴露发现、读取、创建、追加、resume、official import、structured tools、branches、attachments、readback 等能力。
-- **四级转换规划**：官方导入 → 结构化原生写入 → 惰性文本历史 → Handoff Capsule。
-- **转换清单**：记录 exact / mapped / flattened / summarized / omitted 数量，以及 context、semantics、tools、resume、verification 五轴保真度。
-- **回读验证**：写入后重新发现和解析目标 session；只有事件 ID 完整返回，才计为“已验证”。
-- **故障隔离**：单个目标失败不会阻止同一会话同步到其他目标。
-- **通用兜底**：无法完整转换时生成 JSON + Markdown 交接包，明确提醒目标 Agent 检查工作树并重新运行测试，不伪造历史工具状态。
-- **双向增量同步**：任何已选 Agent 的新会话或会话更新都可以流向其他已选端。
-- **并发三方合并**：从共同 revision 同时继续的会话保留为两个分支；独立追加自动合并，同一事件的不同编辑进入显式冲突，不使用最后写入者覆盖。
-- **初次开启只建基线**：默认不会把全部历史会话突然灌入所有工具。
-- **中英文界面**：网页详细账本和 macOS 菜单栏共享语言配置，可随时切换中文或 English。
-- **源会话唯一身份**：以 `sourceAgent + native sessionId` 建立唯一索引；同一源文件换路径或旧投影回流时仍收敛到同一个 canonical session。
-- **低开销守护**：会话列表使用持久化轻量索引，原生 JSONL 发现仅读取有限头部并缓存，活动文件等待短暂稳定后再转换，避免重复解析大型会话。
+| Agent | 读取已有会话 | 创建 / 更新目标 | 工具轨迹 | 回读验证 | 说明 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Codex | ✅ | ✅ | 结构化 | ✅ | 可原生恢复 |
+| Claude Code | ✅ | ✅ | 结构化 | ✅ | 可原生恢复；会清理不被 Claude Code 识别的来源模型字段 |
+| OpenCode | ✅ | ✅ | 历史文本降级 | ✅ | 需要本机安装 `opencode` CLI；使用官方 export/import，不直接修改 SQLite |
+| Qoder | ✅ | ✅ | 结构化 | ✅（文件） | 原生索引由宿主维护，恢复 / 出现在宿主 UI 中仍为实验性能力 |
 
-## 支持矩阵
-
-| Agent | 读取 | 写入 | 转换路径 | 回读验证 |
-|---|---:|---:|---|---:|
-| Codex | ✅ | ✅ | 独立 rollout JSONL，保留 message/tool 结构 | ✅ |
-| Claude Code | ✅ | ✅ | 独立 project transcript，保留 message/tool 结构 | ✅ |
-| OpenCode | ✅ | ✅ | 官方 `session list/export/import`；工具轨迹转为惰性历史文本 | ✅ |
-| Qoder | ✅ | ✅* | 文档化 transcript JSONL；resume 索引仍是实验性兼容面 | ✅（文件） |
-
-`*` 若某个 Qoder 版本另有私有 session 索引，Bridge 会显示“续接实验性”，不会把文件写入等同于原生 resume 已验证。
+实际可用能力以本机检测结果为准。Agentail 会在同步前读取适配器能力，而不是假设所有版本都支持同一格式。
 
 ## ASIF/2 中间协议
 
@@ -141,6 +228,8 @@ npm run app:install
 
 网页 <http://127.0.0.1:4765> 仅作为“详细账本”，用于查看单条会话的转换路径、保真度和错误明细，不是日常控制入口。实时同步默认关闭。
 
+菜单栏面板和详细账本均提供“报告问题 / Report issue”入口。它会打开 GitHub 的新 Issue 页面，并预填版本、Agent 检测结果和连续性状态；不会附带会话正文、项目名称、文件路径或命令输出，用户确认内容后再提交。
+
 管理原生 App：
 
 ```bash
@@ -178,6 +267,13 @@ node ./bin/agent-session-bridge.mjs import --file chat.asif.json --to codex,qode
 ```bash
 node ./bin/agent-session-bridge.mjs repair --agent claude
 node ./bin/agent-session-bridge.mjs repair --agent claude --apply
+```
+
+若旧版本把 `isError: false`、工具 ID 前缀或目标端角色降级误判为“同一事件出现两个版本”，可先只读预览，再暂停后台同步并应用修复。该命令只把语义相同的冲突标记为已解决，不改事件正文：
+
+```bash
+node ./bin/agent-session-bridge.mjs repair conflicts
+node ./bin/agent-session-bridge.mjs repair conflicts --apply
 ```
 
 ## 数据目录

@@ -117,10 +117,11 @@ export class OpenCodeAdapter extends Adapter {
     for (const [messageIndex, message] of (data.messages ?? []).entries()) {
       const info = message.info ?? {};
       for (const [partIndex, part] of (message.parts ?? []).entries()) {
-        const id = part.metadata?.agentSessionBridge?.eventId
+        const eventMarker = part.metadata?.agentSessionBridge ?? {};
+        const id = eventMarker.eventId
           ?? `evt_${stableId("", `${this.id}:${descriptor.sessionId}:${info.id ?? messageIndex}:${part.id ?? partIndex}`, 28)}`;
         const source = { agent: this.id, sessionId: descriptor.sessionId, nativeId: part.id ?? info.id };
-        if (part.type === "text" && part.text) events.push(contentEvent({ id, timestamp: new Date(info.time?.created ?? Date.now()).toISOString(), role: info.role, text: part.text, source }));
+        if (part.type === "text" && part.text) events.push(contentEvent({ id, timestamp: new Date(info.time?.created ?? Date.now()).toISOString(), role: eventMarker.eventRole ?? info.role, text: part.text, source }));
         else if (part.type === "tool") {
           events.push(contentEvent({ id, timestamp: new Date(info.time?.created ?? Date.now()).toISOString(), kind: "tool_call", role: "assistant", text: part.tool, name: part.tool, callId: part.callID, input: part.state?.input, source }));
           if (["completed", "error"].includes(part.state?.status)) events.push(contentEvent({
@@ -161,7 +162,7 @@ export class OpenCodeAdapter extends Adapter {
       const messageId = stableId("msg_", `${session.id}:${event.id}`, 26);
       const partId = stableId("prt_", `${session.id}:${event.id}`, 26);
       const timestamp = epoch(event.timestamp);
-      const marker = { ...bridgeMarker(session), eventId: event.id };
+      const marker = { ...bridgeMarker(session), eventId: event.id, eventRole: event.role };
       const text = portableText(event);
       if (event.role === "user" && event.kind === "message") {
         lastUserId = messageId;

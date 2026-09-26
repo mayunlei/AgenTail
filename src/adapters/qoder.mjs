@@ -77,10 +77,11 @@ export class QoderAdapter extends Adapter {
       for (const [blockIndex, block] of blocks.entries()) {
         const id = block.agentSessionBridge?.eventId ?? record.agentSessionBridge?.eventId
           ?? `evt_${stableId("", `${this.id}:${sessionId}:${record.uuid ?? recordIndex}:${blockIndex}`, 28)}`;
+        const eventMarker = block.agentSessionBridge ?? record.agentSessionBridge ?? {};
         const source = { agent: this.id, sessionId, nativeId: record.uuid ?? String(recordIndex) };
         if (block.type === "tool_use") events.push(contentEvent({ id, timestamp: record.timestamp, kind: "tool_call", role: "assistant", text: block.name, name: block.name, callId: block.id, input: block.input, source }));
         else if (block.type === "tool_result") events.push(contentEvent({ id, timestamp: record.timestamp, kind: "tool_result", role: "tool", text: textFromContent(block.content), callId: block.tool_use_id, isError: block.is_error, source }));
-        else if (block.text) events.push(contentEvent({ id, timestamp: record.timestamp, role: record.message.role ?? record.type, text: block.text, source }));
+        else if (block.text) events.push(contentEvent({ id, timestamp: record.timestamp, role: eventMarker.eventRole ?? record.message.role ?? record.type, text: block.text, source }));
       }
     }
     return createSession({
@@ -100,7 +101,7 @@ export class QoderAdapter extends Adapter {
   }
 
   recordForEvent(session, event) {
-    const marker = { ...bridgeMarker(session), eventId: event.id };
+    const marker = { ...bridgeMarker(session), eventId: event.id, eventRole: event.role };
     const common = {
       sessionId: session.id,
       uuid: uuidFrom(`qoder:${session.id}:${event.id}`),

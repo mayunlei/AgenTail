@@ -22,7 +22,7 @@
 html { background: var(--bg); }
 body { margin: 0; min-width: 320px; color: var(--text); background: var(--bg); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; }
-button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .report-issue:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
 .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; }
 .topbar { height: 82px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
@@ -32,6 +32,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .brand strong { font-size: 13px; letter-spacing: .01em; }
 .brand small { color: var(--muted); font-size: 10px; margin-top: 3px; }
 .topbar-status { display: flex; gap: 10px; align-items: center; }
+.report-issue { border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--muted); font: 10px var(--mono); text-decoration: none; transition: border-color .15s, color .15s, background .15s; }
+.report-issue:hover { color: var(--acid); border-color: rgba(200,244,107,.38); background: rgba(200,244,107,.05); }
 .language-picker select { min-width: 82px; border-radius: 999px; padding: 7px 26px 7px 10px; color: var(--muted); font: 10px var(--mono); }
 .local-pill, .health { border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; font: 10px var(--mono); color: var(--muted); }
 .health { display: flex; align-items: center; gap: 7px; }
@@ -188,7 +190,7 @@ footer { display: flex; justify-content: space-between; padding: 30px 2px 40px; 
 }
 @media (max-width: 620px) {
   .shell { width: min(100% - 24px, 1180px); }
-  .topbar { height: 72px; }.local-pill { display: none; }
+  .topbar { height: 72px; }.local-pill { display: none; }.report-issue { padding: 7px; }.report-issue span:last-child { display: none; }
   .overview { padding-top: 18px; }.continuity-card, .control-card, .sessions-panel, .import-panel, .activity-panel { padding: 20px; }
   .signal-grid { grid-template-columns: 1fr 1fr; row-gap: 17px; }.signal-grid div:nth-child(2) { border-right: 0; }
   .agent-grid { grid-template-columns: 1fr; }.agent-card { min-height: 150px; }
