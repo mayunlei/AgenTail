@@ -1,0 +1,334 @@
+<meta charset="utf-8">
+<div id="agentail-session-console">
+  <style>
+    #agentail-session-console { color-scheme: light dark; --at-bg: light-dark(#f4f6f8, #11151d); --at-surface: light-dark(#fff, #191f29); --at-soft: light-dark(#f0f3f7, #222a36); --at-text: light-dark(#192334, #e6ebf3); --at-muted: light-dark(#56657b, #a4b1c5); --at-line: light-dark(#dce2ea, #303a4a); --at-accent: light-dark(#355cce, #97b2ff); --at-accent-bg: light-dark(#eaf0ff, #253554); --at-good: light-dark(#27724c, #93d5b0); --at-warn: light-dark(#956014, #e9c27c); --at-input: light-dark(#5479dc, #8eacf7); --at-output: light-dark(#8d70c4, #b99ae7); font: 13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--at-text); background: var(--at-bg); width: 100%; min-width: 0; border: 1px solid var(--at-line); border-radius: 12px; overflow: clip; box-sizing: border-box; }
+    #agentail-session-console * { box-sizing: border-box; }
+    #agentail-session-console button, #agentail-session-console input, #agentail-session-console select, #agentail-session-console textarea { font: inherit; color: inherit; }
+    #agentail-session-console button { background: transparent; border: 1px solid var(--at-line); border-radius: 7px; padding: 6px 9px; text-align: left; }
+    #agentail-session-console button:hover { background: var(--at-soft); }
+    #agentail-session-console button:disabled { opacity: .6; }
+    #agentail-session-console input, #agentail-session-console select, #agentail-session-console textarea { background: var(--at-surface); border: 1px solid var(--at-line); border-radius: 6px; padding: 7px; min-width: 0; }
+    #agentail-session-console p, #agentail-session-console h2, #agentail-session-console h3 { margin: 0; }
+    #agentail-session-console h2 { font-size: 17px; font-weight: 600; }
+    #agentail-session-console h3 { font-size: 13px; font-weight: 600; }
+    #agentail-session-console small, #agentail-session-console .at-muted { color: var(--at-muted); font-size: 12px; }
+    #agentail-session-console code { font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+    #agentail-session-console .at-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 15px 18px; background: var(--at-surface); border-bottom: 1px solid var(--at-line); }
+    #agentail-session-console .at-brand { display: flex; align-items: center; gap: 9px; }
+    #agentail-session-console .at-brand-mark { background: var(--at-text); color: var(--at-surface); border-radius: 8px; padding: 2px 10px; font-size: 21px; font-weight: 600; }
+    #agentail-session-console .at-brand strong { display: block; font-size: 15px; }
+    #agentail-session-console .at-demo { color: var(--at-warn); background: var(--at-soft); padding: 4px 8px; border-radius: 5px; font-size: 12px; }
+    #agentail-session-console .at-brief { padding: 13px 18px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--at-line); }
+    #agentail-session-console .at-brief strong { display: block; margin-bottom: 3px; }
+    #agentail-session-console .at-grid { display: grid; grid-template-columns: 184px minmax(250px, var(--at-chat-width, 300px)) minmax(0, 1fr); align-items: stretch; }
+    #agentail-session-console .at-sidebar { padding: 13px 9px; border-right: 1px solid var(--at-line); min-width: 0; }
+    #agentail-session-console .at-side-heading { display: flex; justify-content: space-between; padding: 0 5px 9px; }
+    #agentail-session-console .at-search { width: 100%; margin-bottom: 10px; }
+    #agentail-session-console .at-session-list { display: grid; gap: 5px; }
+    #agentail-session-console .at-session { display: grid; gap: 5px; width: 100%; padding: 10px 8px; border-color: transparent; }
+    #agentail-session-console .at-session[aria-pressed="true"] { background: var(--at-accent-bg); }
+    #agentail-session-console .at-session-title { font-weight: 500; overflow-wrap: anywhere; }
+    #agentail-session-console .at-session-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 3px; font-size: 11px; color: var(--at-muted); }
+    #agentail-session-console .at-state { font-size: 11px; color: var(--at-good); }
+    #agentail-session-console .at-state.wait { color: var(--at-warn); }
+    #agentail-session-console .at-state.unknown { color: var(--at-muted); }
+    #agentail-session-console .at-sidebar-note { border-top: 1px solid var(--at-line); margin-top: 15px; padding: 11px 5px 0; font-size: 11px; color: var(--at-muted); }
+    #agentail-session-console .at-chat { background: var(--at-surface); border-right: 1px solid var(--at-line); padding: 14px 13px; min-width: 0; }
+    #agentail-session-console .at-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    #agentail-session-console .at-scope { margin-top: 3px; font-size: 11px; color: var(--at-muted); }
+    #agentail-session-console .at-messages { display: grid; align-content: start; gap: 13px; min-height: 210px; }
+    #agentail-session-console .at-message { overflow-wrap: anywhere; }
+    #agentail-session-console .at-message-label { color: var(--at-muted); font-size: 11px; margin-bottom: 4px; }
+    #agentail-session-console .at-message.user { background: var(--at-soft); padding: 9px; border-radius: 8px; }
+    #agentail-session-console .at-message p { white-space: pre-wrap; }
+    #agentail-session-console .at-suggestions { display: grid; gap: 6px; margin: 13px 0; }
+    #agentail-session-console .at-suggestions button { font-size: 12px; color: var(--at-muted); }
+    #agentail-session-console .at-composer { display: grid; gap: 7px; border-top: 1px solid var(--at-line); padding-top: 12px; margin-top: 12px; }
+    #agentail-session-console .at-composer label { font-size: 11px; color: var(--at-muted); }
+    #agentail-session-console .at-composer textarea { resize: vertical; width: 100%; min-height: 78px; font-size: 14px; }
+    #agentail-session-console .at-route-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    #agentail-session-console .at-route-controls label { display: grid; gap: 3px; }
+    #agentail-session-console .at-primary { background: var(--at-text); color: var(--at-surface); text-align: center; border-color: transparent; }
+    #agentail-session-console .at-primary:hover { background: var(--at-muted); color: var(--at-surface); }
+    #agentail-session-console .at-route { border-top: 1px solid var(--at-line); margin-top: 13px; padding-top: 12px; display: grid; gap: 7px; }
+    #agentail-session-console .at-route[hidden] { display: none; }
+    #agentail-session-console .at-route dl { margin: 0; display: grid; grid-template-columns: 50px minmax(0, 1fr); gap: 5px; font-size: 12px; }
+    #agentail-session-console .at-route dt { color: var(--at-muted); }
+    #agentail-session-console .at-route dd { margin: 0; overflow-wrap: anywhere; }
+    #agentail-session-console .at-inspector { padding: 14px 16px; min-width: 0; background: var(--at-surface); }
+    #agentail-session-console .at-session-identity { font-size: 11px; color: var(--at-muted); margin-top: 5px; overflow-wrap: anywhere; }
+    #agentail-session-console .at-tabs { display: flex; gap: 5px; flex-wrap: wrap; border-bottom: 1px solid var(--at-line); padding: 13px 0 10px; margin-bottom: 12px; }
+    #agentail-session-console .at-tabs button { border-color: transparent; color: var(--at-muted); }
+    #agentail-session-console .at-tabs button[aria-selected="true"] { color: var(--at-text); background: var(--at-soft); }
+    #agentail-session-console .at-view[hidden] { display: none; }
+    #agentail-session-console .at-objective { background: var(--at-soft); border-radius: 7px; padding: 10px; margin-bottom: 12px; }
+    #agentail-session-console .at-objective small { display: block; margin-bottom: 3px; font-size: 11px; }
+    #agentail-session-console .at-phases { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 12px; }
+    #agentail-session-console .at-phase { padding: 3px 7px; background: var(--at-soft); color: var(--at-muted); border-radius: 4px; font-size: 11px; }
+    #agentail-session-console .at-phase.active { color: var(--at-accent); background: var(--at-accent-bg); }
+    #agentail-session-console .at-steps { display: grid; gap: 0; margin: 0 0 12px; padding: 0; list-style: none; }
+    #agentail-session-console .at-step { display: grid; grid-template-columns: 25px minmax(0, 1fr); gap: 5px; align-items: stretch; }
+    #agentail-session-console .at-step-number { font-size: 11px; color: var(--at-muted); text-align: center; padding-top: 8px; position: relative; }
+    #agentail-session-console .at-step:not(:last-child) .at-step-number:after { content: ""; position: absolute; top: 28px; bottom: -4px; left: 50%; width: 1px; background: var(--at-line); }
+    #agentail-session-console .at-step button { border-color: transparent; padding: 7px 8px; margin-bottom: 3px; }
+    #agentail-session-console .at-step button[aria-pressed="true"] { background: var(--at-accent-bg); }
+    #agentail-session-console .at-step-top { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
+    #agentail-session-console .at-step button small { display: block; font-size: 11px; margin-top: 2px; }
+    #agentail-session-console .at-step-detail { border-top: 1px solid var(--at-line); padding-top: 11px; }
+    #agentail-session-console .at-facts { display: grid; gap: 9px; margin: 11px 0; }
+    #agentail-session-console .at-fact { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; }
+    #agentail-session-console .at-fact b { color: var(--at-muted); font: 11px/1.6 ui-monospace, monospace; }
+    #agentail-session-console .at-fact p { font-size: 12px; overflow-wrap: anywhere; }
+    #agentail-session-console details { border-top: 1px solid var(--at-line); padding-top: 8px; margin-top: 10px; }
+    #agentail-session-console summary { font-size: 12px; color: var(--at-muted); }
+    #agentail-session-console pre { font: 11px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--at-soft); padding: 9px; border-radius: 5px; }
+    #agentail-session-console .at-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 0 13px; border-bottom: 1px solid var(--at-line); margin-bottom: 11px; }
+    #agentail-session-console .at-metric span { display: block; font-size: 11px; color: var(--at-muted); }
+    #agentail-session-console .at-metric strong { font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; }
+    #agentail-session-console .at-token-legend { display: flex; flex-wrap: wrap; gap: 11px; font-size: 11px; color: var(--at-muted); margin: 9px 0; }
+    #agentail-session-console .at-token-legend i { display: inline-block; height: 7px; width: 7px; margin-right: 4px; background: var(--at-input); }
+    #agentail-session-console .at-token-legend .output i { background: var(--at-output); }
+    #agentail-session-console .at-usage-rows { display: grid; gap: 7px; margin: 12px 0; }
+    #agentail-session-console .at-usage-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 55px; align-items: center; gap: 7px; font-size: 11px; }
+    #agentail-session-console .at-usage-bar { width: 100%; height: 28px; border: none; padding: 5px 0; display: flex; align-items: stretch; border-radius: 0; }
+    #agentail-session-console .at-usage-bar span { background: var(--at-input); min-width: 0; }
+    #agentail-session-console .at-usage-bar span.output { background: var(--at-output); }
+    #agentail-session-console .at-usage-bar[aria-pressed="true"] { background: var(--at-soft); }
+    #agentail-session-console .at-usage-row .at-value { text-align: right; font-variant-numeric: tabular-nums; }
+    #agentail-session-console .at-usage-foot { padding-top: 8px; border-top: 1px solid var(--at-line); display: grid; gap: 7px; font-size: 12px; }
+    #agentail-session-console .at-usage-detail { padding: 10px 0; font-size: 12px; }
+    #agentail-session-console .at-briefing-block { padding: 10px 0; border-bottom: 1px solid var(--at-line); display: grid; gap: 5px; }
+    #agentail-session-console .at-briefing-block p { font-size: 12px; }
+    #agentail-session-console .at-empty { padding: 20px 4px; color: var(--at-muted); }
+    #agentail-session-console .at-footer { border-top: 1px solid var(--at-line); padding: 10px 17px; color: var(--at-muted); font-size: 11px; background: var(--at-bg); overflow-wrap: anywhere; }
+    @media (max-width: 880px) { #agentail-session-console .at-grid { grid-template-columns: 184px minmax(0, 1fr); } #agentail-session-console .at-chat { border-right: 0; } #agentail-session-console .at-inspector { grid-column: 1 / -1; border-top: 1px solid var(--at-line); } #agentail-session-console .at-messages { min-height: 130px; } }
+    @media (max-width: 500px) { #agentail-session-console .at-grid { grid-template-columns: minmax(0, 1fr); } #agentail-session-console .at-sidebar { border-right: 0; border-bottom: 1px solid var(--at-line); } #agentail-session-console .at-session-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } #agentail-session-console .at-inspector { grid-column: 1; } #agentail-session-console .at-header { padding: 12px; } #agentail-session-console .at-sidebar-note { margin-top: 10px; } #agentail-session-console input, #agentail-session-console textarea, #agentail-session-console select { font-size: 16px; } #agentail-session-console .at-metric strong { font-size: 17px; } }
+  </style>
+  <header class="at-header">
+    <div class="at-brand"><span class="at-brand-mark" aria-hidden="true">a</span><div><strong>AgenTail</strong><small>Session 管理控制台</small></div></div>
+    <span class="at-demo">交互原型 · 演示数据 · 未连接真实端</span>
+  </header>
+  <section class="at-brief" aria-label="工作 Briefing">
+    <div><strong>先处理等待你的工作</strong><small>1 项需要决策，1 项待验收；搜索查询优化正在验证。</small></div>
+    <button type="button" data-prompt="现在应该先看哪个 Session？">让总管 Briefing</button>
+  </section>
+  <div class="at-grid">
+    <aside class="at-sidebar" aria-label="Session 目录">
+      <div class="at-side-heading"><strong>Sessions</strong><small>5 个演示会话</small></div>
+      <input class="at-search" type="search" aria-label="搜索 Session" placeholder="搜索目标、项目或端">
+      <div class="at-session-list"></div>
+      <p class="at-sidebar-note">每条会话保留原生身份。<br>观察、派发、续接；没有跨端同步。</p>
+    </aside>
+    <section class="at-chat" aria-label="Personal Agent 总管 Chat">
+      <div class="at-section-head"><div><h3>Personal Agent</h3><p class="at-scope">统一 Chat · 查询与操作分开处理</p></div><small>原型</small></div>
+      <div class="at-messages" role="log" aria-label="总管对话" aria-live="polite"></div>
+      <div class="at-suggestions">
+        <button type="button" data-prompt="我离开后有什么进展？">我离开后发生了什么？</button>
+        <button type="button" data-prompt="继续修搜索查询优化的失败样例">继续搜索查询优化</button>
+        <button type="button" data-prompt="给 Claude Code 新建一个测试任务">向 Claude Code 分发新任务</button>
+      </div>
+      <form class="at-composer">
+        <label for="at-chat-message">了解进展，或描述要交给 Agent 的工作</label>
+        <textarea id="at-chat-message" placeholder="例如：继续修搜索的失败样例" required></textarea>
+        <div class="at-route-controls">
+          <label>端点<select aria-label="目标端点"><option value="auto">按内容选择</option><option value="codex-local">Codex · 本机</option><option value="claude-mac">Claude Code · Mac</option><option value="opencode-dev">OpenCode · 开发机</option><option value="qoder-local">Qoder · 只读观察</option></select></label>
+          <label>执行方式<select aria-label="执行方式"><option value="auto">按内容选择</option><option value="continue">继续选中会话</option><option value="create">创建独立任务</option></select></label>
+        </div>
+        <button class="at-primary" type="submit">预览查询 / 任务路由</button>
+        <small>本地规则预览，不调用模型、不发送指令。</small>
+      </form>
+      <section class="at-route" aria-label="任务路由预览" hidden></section>
+    </section>
+    <section class="at-inspector" aria-label="Session 可视化面板">
+      <div class="at-section-head"><h2 class="at-inspector-title"></h2><span class="at-inspector-state at-state"></span></div>
+      <p class="at-session-identity"></p>
+      <nav class="at-tabs" role="tablist" aria-label="Session 详情">
+        <button id="at-tab-briefing" type="button" role="tab" aria-controls="at-view-briefing" aria-selected="false" data-view="briefing">Briefing</button>
+        <button id="at-tab-mdp" type="button" role="tab" aria-controls="at-view-mdp" aria-selected="true" data-view="mdp">MDP 进展</button>
+        <button id="at-tab-usage" type="button" role="tab" aria-controls="at-view-usage" aria-selected="false" data-view="usage">Token 与资源</button>
+      </nav>
+      <div id="at-view-briefing" class="at-view" role="tabpanel" aria-labelledby="at-tab-briefing" hidden></div>
+      <div id="at-view-mdp" class="at-view" role="tabpanel" aria-labelledby="at-tab-mdp"></div>
+      <div id="at-view-usage" class="at-view" role="tabpanel" aria-labelledby="at-tab-usage" hidden></div>
+    </section>
+  </div>
+  <footer class="at-footer" aria-live="polite">演示模式：可切换 Session、展开 MDP 步骤、检查用量口径，并预览创建与续接。没有真实任务被发送。</footer>
+  <script>
+    (() => {
+      const root = document.getElementById('agentail-session-console');
+      if (!root) return;
+      const endpoints = {
+        'codex-local': { name: 'Codex · 本机', agent: 'Codex', workspace: 'search', writable: true },
+        'claude-mac': { name: 'Claude Code · Mac', agent: 'Claude Code', workspace: 'console', writable: true },
+        'opencode-dev': { name: 'OpenCode · 开发机', agent: 'OpenCode', workspace: 'runtime', writable: true },
+        'qoder-local': { name: 'Qoder · 本机', agent: 'Qoder', workspace: 'docs', writable: false },
+      };
+      const usage = (id, input, output, cached, reasoning) => ({ id, input, output, cached, reasoning });
+      const step = (label, status, time, s, a, o, next, request = null, outcome = '未提供数值奖励') => ({ label, status, time, s, a, o, next, request, outcome });
+      const sessions = [
+        { id: 'demo-search', native: 'demo-cx-search-018', endpoint: 'codex-local', title: '搜索查询优化', project: 'search', state: '正在验证', stateKind: 'active', aliases: ['搜索', '查询', 'search'], goal: '修复长问题搜索失败，保留现有索引和接口。', decision: '已决定先调整查询处理；不扩大到索引重建。', change: '已定位长问题丢失限定词，完成修复并启动回归；尚无最终验证结果。', next: '当前无需你决策，等待回归结果。', elapsed: '14 分 20 秒', waits: '2 分 10 秒', coverage: '3 / 4 个请求已回报', requests: [usage('req-01', 18000, 2400, 12000, 1600), usage('req-02', 22000, 4100, 16000, 2900), usage('req-03', 14000, 2500, 9000, 1500)], pendingUsage: true, phases: ['理解 ✓', '计划 ✓', '执行 ✓', '验证中', '交付待定'], steps: [
+          step('读取目标与已有约束', '已完成', '10:02 · 1 分 12 秒', '长问题的召回效果不稳定。', '读取查询处理与固定失败样例。', '样例包含被查询改写遗漏的限定词。', '限定问题范围为查询改写，不重建索引。', 0),
+          step('复现长问题失败', '历史失败', '10:04 · 2 分 40 秒', '需要可重复的失败证据。', '运行固定查询用例并比较改写前后。', '12 个相关用例中 2 个失败；原始限定词被裁剪。', '失败机制已确认，进入修复。', 1, '测试 2 失败 / 12；不是 Reward 数值'),
+          step('保留限定词并修改处理逻辑', '已完成', '10:08 · 4 分 21 秒', '重写逻辑忽略了限定词。', '修改 query-rewrite.ts，增加对应回归样例。', '产生代码 diff 与两条回归用例。', '补丁已形成，验证仍未结束。', 2),
+          step('运行完整回归', '进行中', '10:13 · 尚未结束', '补丁需要验证兼容性。', '执行相关测试与基线查询回归。', '已启动执行；退出码和最终结果尚未返回。', '仍在验证，不能判定任务完成。', null),
+        ] },
+        { id: 'demo-console', native: 'demo-cl-console-044', endpoint: 'claude-mac', title: '控制台布局实现', project: 'console', state: '等待验收', stateKind: 'wait', aliases: ['控制台', '布局', 'console'], goal: '实现 Session 列表、Chat 和任务详情三个区域。', decision: '桌面使用三栏，窄屏依次展示；不加同步设置。', change: '已完成三个区域和窄屏布局，构建通过。', next: '需要你查看布局，并确认默认展开 Briefing 还是 MDP。', elapsed: '9 分 04 秒', waits: '1 分 05 秒', coverage: '2 / 2 个请求已回报', requests: [usage('req-01', 21000, 3200, 14000, 0), usage('req-02', 16000, 1800, 10000, 0)], pendingUsage: false, phases: ['理解 ✓', '计划 ✓', '执行 ✓', '验证 ✓', '待验收'], steps: [
+          step('确认控制台范围', '已完成', '09:41', '原页面以同步为主。', '按新的三栏控制台划分内容。', '已确定 Session、Chat、详情的关系。', '开始实现布局。', 0),
+          step('实现并构建页面', '已完成', '09:48', '布局和交互尚未完成。', '实现响应式区域并运行构建。', '演示构建退出码为 0；尚无用户验收。', '结果等待用户验收。', 1),
+        ] },
+        { id: 'demo-runtime', native: 'demo-oc-runtime-007', endpoint: 'opencode-dev', title: '运行时连接恢复', project: 'runtime', state: '等待决策', stateKind: 'wait', aliases: ['运行时', '连接', 'runtime'], goal: '恢复断连后的任务回执，避免重复发送。', decision: '回执不明时先核对，不直接重试。', change: '已验证主动断连恢复；发现旧端缺少稳定的操作 ID。', next: '需要决定：旧端保持只读，还是先升级端版本后开放派发。', elapsed: '12 分 16 秒', waits: '4 分 08 秒', coverage: '2 / 2 个请求已回报', requests: [usage('req-01', 14500, 2200, 8000, 1000), usage('req-02', 9800, 2100, 6000, 1100)], pendingUsage: false, phases: ['理解 ✓', '执行 ✓', '验证 ✓', '需要决策'], steps: [
+          step('重放断连与恢复', '已完成', '09:26', '不确定指令是否被执行端接收。', '使用稳定操作 ID 重放连接事件。', '新端可核对同一回执，不会重复派发。', '新端控制路径通过演示验证。', 0),
+          step('核对旧端兼容能力', '等待决策', '09:33', '旧端没有可靠的幂等回执。', '检查端版本与能力声明。', '无法确认重复发送是否安全。', '在用户决定前保持旧端只读。', 1),
+        ] },
+        { id: 'demo-docs', native: 'demo-qd-docs-023', endpoint: 'qoder-local', title: '接手说明文档', project: 'docs', state: '运行状态未知', stateKind: 'unknown', aliases: ['文档', '说明', 'docs'], goal: '整理新控制台的接手说明。', decision: '原生历史保持在原端，不迁移 Session。', change: '最后可见消息说明已形成文档草稿；没有实时执行连接。', next: '可以查看历史。该演示端没有实时控制或 usage 能力。', elapsed: '未提供', waits: '未提供', coverage: 'usage 未提供', requests: [], pendingUsage: false, phases: ['已观察到文档草稿', '运行状态未知'], steps: [
+          step('观察到文档草稿', '历史观察', '09:12 · 最后可见活动', '需要说明新产品范围。', '历史消息记录了整理文档的动作。', '读取到草稿描述，没有最终验证或实时运行事件。', '仅能确认历史观察，不能判断仍在运行或已经完成。'),
+        ] },
+        { id: 'demo-index', native: 'demo-cx-index-003', endpoint: 'codex-local', title: '搜索索引方案调研', project: 'search', state: '已结束的工作', stateKind: 'done', aliases: ['索引', '调研'], goal: '评估是否需要重建搜索索引。', decision: '当前不重建索引，优先处理查询改写。', change: '已记录方案选择与理由；新的查询修复在另一条 Session 推进。', next: '通常无需续接；查询修复应回到“搜索查询优化”。', elapsed: '6 分 30 秒', waits: '40 秒', coverage: '1 / 1 个请求已回报', requests: [usage('req-01', 11000, 1300, 7000, 700)], pendingUsage: false, phases: ['调研 ✓', '决策已确认'], steps: [
+          step('记录索引方案决策', '用户已确认', '昨天', '需要决定修改查询还是重建索引。', '比较两种方案并由用户选择。', '用户明确选择先修改查询。', '本次调研目标已结束。', 0),
+        ] },
+      ];
+      const saved = window.openai?.widgetState?.privateContent;
+      const state = { selected: sessions.some(s => s.id === saved?.selected) ? saved.selected : 'demo-search', view: ['briefing', 'mdp', 'usage'].includes(saved?.view) ? saved.view : 'mdp', step: 0, request: 0, messages: [{ role: 'agent', text: '运行时连接恢复正在等你决策，控制台布局等待验收。搜索查询优化仍在验证，当前无需你介入。\n\n你可以让我解释某个 Session，也可以描述要继续或分发的工作。' }], route: null, actionCount: 0 };
+      const $ = selector => root.querySelector(selector);
+      const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const format = value => value == null ? '未提供' : Number(value).toLocaleString('en-US');
+      const current = () => sessions.find(s => s.id === state.selected);
+      const total = session => session.requests.length ? session.requests.reduce((sum, r) => sum + r.input + r.output, 0) : null;
+      function persist() {
+        window.openai?.setWidgetState?.({ modelContent: { preview: true, selectedSession: current().title, view: state.view }, privateContent: { selected: state.selected, view: state.view } }).catch(() => {});
+      }
+      function renderSessions() {
+        const query = $('.at-search').value.trim().toLowerCase();
+        const visible = sessions.filter(s => `${s.title} ${s.project} ${endpoints[s.endpoint].name}`.toLowerCase().includes(query));
+        $('.at-session-list').innerHTML = visible.map(s => `<button type="button" class="at-session" data-session="${s.id}" aria-pressed="${s.id === state.selected}"><span class="at-session-title">${esc(s.title)}</span><span class="at-session-meta"><span>${esc(endpoints[s.endpoint].agent)}</span><span>${total(s) == null ? 'Token 未提供' : format(total(s)) + ' token'}</span></span><span class="at-state ${s.stateKind === 'wait' ? 'wait' : s.stateKind === 'unknown' ? 'unknown' : ''}">${esc(s.state)}</span></button>`).join('') || '<p class="at-empty">没有匹配的演示会话。</p>';
+      }
+      function renderBriefing(s) {
+        $('#at-view-briefing').innerHTML = [['当前目标', s.goal], ['已确认的决定', s.decision], ['离开后的变化', s.change], ['下一步 / 需要你处理', s.next]].map(([label, text]) => `<section class="at-briefing-block"><h3>${esc(label)}</h3><p>${esc(text)}</p></section>`).join('') + '<small>本页为演示数据；正式版每条结论都关联原始事件和目标版本。</small>';
+      }
+      function renderMdp(s) {
+        const index = Math.min(state.step, s.steps.length - 1);
+        const selected = s.steps[index];
+        const request = selected.request == null ? null : s.requests[selected.request];
+        $('#at-view-mdp').innerHTML = `<div class="at-objective"><small>当前目标 · 原生 Session 保持在原端</small><p>${esc(s.goal)}</p></div><div class="at-section-head"><h3>可观察执行轨迹</h3><small>${s.steps.length} 个演示步骤</small></div><div class="at-phases">${s.phases.map(p => `<span class="at-phase ${/中|待|决策|未知/.test(p) ? 'active' : ''}">${esc(p)}</span>`).join('')}</div><ol class="at-steps">${s.steps.map((item, i) => `<li class="at-step"><span class="at-step-number">${i + 1}</span><button type="button" data-step="${i}" aria-pressed="${i === index}"><span class="at-step-top"><span>${esc(item.label)}</span><span class="at-state ${/失败|决策/.test(item.status) ? 'wait' : ''}">${esc(item.status)}</span></span><small>${esc(item.time)}</small></button></li>`).join('')}</ol><section class="at-step-detail" aria-label="MDP 步骤详情"><h3>步骤 ${index + 1} · ${esc(selected.label)}</h3><div class="at-facts">${[['S', selected.s], ['A', selected.a], ['O', selected.o], ['S′', selected.next], ['R', selected.outcome]].map(([key, value]) => `<div class="at-fact"><b>${key}</b><p>${esc(value)}</p></div>`).join('')}</div><small>${request ? '关联 ' + esc(request.id) + '：' + format(request.input + request.output) + ' token（请求总量，不按工具均分）' : '本步骤无可归属的请求 usage；不填充估算值。'}</small><details><summary>查看来源标识</summary><pre>${esc(JSON.stringify({ endpoint: s.endpoint, nativeSessionId: s.native, eventId: 'demo-event-' + (index + 1), relationship: 'observed_sequence', requestId: request?.id ?? null, data: 'demonstration_only' }, null, 2))}</pre></details></section>`;
+      }
+      function renderUsage(s) {
+        if (!s.requests.length) {
+          $('#at-view-usage').innerHTML = `<div class="at-empty"><h3>该端未提供 usage</h3><p>保留缺失状态，不把未采集的用量记为 0。</p></div><div class="at-usage-foot"><p>运行耗时：${esc(s.elapsed)}</p><p>实时控制：只读观察</p><p>上下文窗口与账户额度：未提供</p></div>`;
+          return;
+        }
+        const sum = key => s.requests.reduce((value, r) => value + r[key], 0);
+        const max = Math.max(...s.requests.map(r => r.input + r.output));
+        const selected = s.requests[Math.min(state.request, s.requests.length - 1)];
+        $('#at-view-usage').innerHTML = `<div class="at-metrics"><div class="at-metric"><span>可测合计 · token</span><strong>${format(total(s))}</strong></div><div class="at-metric"><span>输入 · token</span><strong>${format(sum('input'))}</strong></div><div class="at-metric"><span>输出 · token</span><strong>${format(sum('output'))}</strong></div></div><div class="at-section-head"><h3>逐请求用量 · token</h3><small>${esc(s.coverage)}</small></div><div class="at-token-legend"><span><i></i>输入</span><span class="output"><i></i>输出</span></div><div class="at-usage-rows" role="group" aria-label="每个请求的 Token 消耗">${s.requests.map((r, i) => `<div class="at-usage-row"><span>${esc(r.id)}</span><button type="button" class="at-usage-bar" data-request="${i}" aria-pressed="${i === state.request}" aria-label="${esc(r.id)}，输入 ${r.input}，输出 ${r.output}，合计 ${r.input + r.output} token"><span style="width:${r.input / max * 100}%"></span><span class="output" style="width:${r.output / max * 100}%"></span></button><span class="at-value">${format(r.input + r.output)}</span></div>`).join('')}${s.pendingUsage ? '<small>req-04：执行中，usage 尚未回报；未计入合计。</small>' : ''}</div><div class="at-usage-detail" aria-live="polite"><strong>${esc(selected.id)}</strong> · 输入 ${format(selected.input)} / 输出 ${format(selected.output)} token<br><small>缓存输入 ${format(selected.cached)} 包含在输入中；reasoning ${format(selected.reasoning)} 包含在输出中（此演示的计量口径）。</small></div><div class="at-usage-foot"><p>缓存输入：${format(sum('cached'))} token · 已包含，不再次相加</p><p>Reasoning：${format(sum('reasoning'))} token · 已包含，不再次相加</p><p>运行 ${esc(s.elapsed)} · 等待 ${esc(s.waits)}</p><small>上下文窗口上限、预算与费用：未提供。总管自身分析消耗单独记账。</small></div><details><summary>查看 ${esc(selected.id)} 的演示计量记录</summary><pre>${esc(JSON.stringify({ source: 'demo-native-usage-event', nativeSessionId: s.native, requestId: selected.id, measurement: 'delta', inputTokens: selected.input, outputTokens: selected.output, totalTokens: selected.input + selected.output, cachedInputTokens: selected.cached, reasoningOutputTokens: selected.reasoning, cacheIncludedInInput: true, reasoningIncludedInOutput: true, coverage: s.pendingUsage ? 'partial' : 'complete', data: 'demonstration_only' }, null, 2))}</pre></details>`;
+      }
+      function renderInspector() {
+        const s = current();
+        $('.at-inspector-title').textContent = s.title;
+        $('.at-inspector-state').textContent = s.state;
+        $('.at-inspector-state').classList.toggle('wait', s.stateKind === 'wait');
+        $('.at-inspector-state').classList.toggle('unknown', s.stateKind === 'unknown');
+        $('.at-session-identity').textContent = `${endpoints[s.endpoint].name} / ${s.project} / ${s.native}`;
+        root.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.view === state.view)));
+        root.querySelectorAll('.at-view').forEach(panel => { panel.hidden = panel.id !== 'at-view-' + state.view; });
+        renderBriefing(s); renderMdp(s); renderUsage(s);
+      }
+      function renderMessages() {
+        $('.at-messages').innerHTML = state.messages.slice(-5).map(m => `<article class="at-message ${m.role === 'user' ? 'user' : ''}"><div class="at-message-label">${m.role === 'user' ? '你' : 'Personal Agent · 本地规则预览'}</div><p>${esc(m.text)}</p></article>`).join('');
+      }
+      function message(role, text) { state.messages.push({ role, text }); renderMessages(); }
+      function selectSession(id) {
+        if (!sessions.some(s => s.id === id)) return;
+        state.selected = id; state.step = 0; state.request = 0;
+        renderSessions(); renderInspector(); persist();
+      }
+      function renderRoute() {
+        const panel = $('.at-route');
+        panel.hidden = !state.route;
+        if (!state.route) return;
+        const r = state.route;
+        panel.innerHTML = `<h3>${r.mode === 'continue' ? '继续原生 Session' : '创建独立任务'} · 仅预览</h3><dl><dt>端点</dt><dd>${esc(endpoints[r.endpoint].name)}</dd><dt>项目</dt><dd>${esc(r.project)}</dd><dt>会话</dt><dd><code>${esc(r.native ?? '等待原生创建回执')}</code></dd><dt>方式</dt><dd>${esc(r.delivery)}</dd><dt>原因</dt><dd>${esc(r.reason)}</dd></dl><button type="button" class="at-primary" data-simulate ${r.simulated ? 'disabled' : ''}>${r.simulated ? '已展示模拟回执' : '模拟端接收回执'}</button><small>不修改原生历史，不连接或执行真实任务。</small>`;
+      }
+      function preview(text) {
+        message('user', text);
+        state.route = null; renderRoute();
+        const mode = $('[aria-label="执行方式"]').value;
+        const configuredEndpoint = $('[aria-label="目标端点"]').value;
+        const explicitEndpoint = /claude/i.test(text) ? 'claude-mac' : /opencode/i.test(text) ? 'opencode-dev' : /qoder/i.test(text) ? 'qoder-local' : /codex/i.test(text) ? 'codex-local' : null;
+        const requestedEndpoint = configuredEndpoint !== 'auto' ? configuredEndpoint : explicitEndpoint;
+        const query = /什么|进展|先看|brief|status|了解|消耗|多少|查看/i.test(text) && !/继续|新建|分发|创建|实现|中断/.test(text);
+        if (query) {
+          const mentioned = sessions.find(s => text.includes(s.title)) ?? sessions.find(s => s.aliases.some(alias => text.toLowerCase().includes(alias)));
+          if (mentioned || !/先看|每个|所有|离开|整体|全部/.test(text)) {
+            const s = mentioned ?? current();
+            selectSession(s.id);
+            const answer = /token|消耗|多少|用量/i.test(text)
+              ? `${s.title}：${total(s) == null ? '端未提供 usage，不能记为 0。' : '可测合计 ' + format(total(s)) + ' token；' + s.coverage + '。'}\n总管自身消耗单独记账；缓存与 reasoning 不重复加进总量。`
+              : `${s.title}\n目标：${s.goal}\n变化：${s.change}\n下一步：${s.next}`;
+            message('agent', answer + '\n\n此查询没有创建或续接任务。');
+          } else {
+            message('agent', '建议先看“运行时连接恢复”：需要你决定旧端保持只读，还是升级后开放派发。\n\n“控制台布局实现”等待验收；“搜索查询优化”回归仍在运行。此查询没有创建或续接任务。');
+          }
+          return;
+        }
+        if (/中断|暂停执行/.test(text)) { message('agent', '中断是单独的运行时能力。正式版需核对原生运行轮次与用户意图；这个原型只预览创建和续接，不实际中断任何任务。'); return; }
+        const explicitCandidates = sessions.filter(s => text.includes(s.title));
+        const candidates = explicitCandidates.length ? explicitCandidates : sessions.filter(s => s.aliases.some(alias => text.toLowerCase().includes(alias)));
+        const explicitCreate = mode === 'create' || /新建|创建|独立任务/.test(text);
+        if (mode === 'auto' && !explicitCreate && candidates.length > 1) {
+          message('agent', '有多条相关 Session：' + candidates.map(s => `“${s.title}”（${endpoints[s.endpoint].name}，${s.state}）`).join('、') + '。请选择一条会话或补充目标，再预览续接；没有发送指令。'); return;
+        }
+        const candidate = mode === 'continue' ? current() : candidates[0];
+        if (mode === 'auto' && !explicitCreate && candidate?.stateKind === 'done') {
+          selectSession(candidate.id);
+          message('agent', `“${candidate.title}”的原工作已经结束。请明确选择“继续选中会话”开始新的轮次，或“创建独立任务”；不会自动续跑已结束的工作。`); return;
+        }
+        const create = explicitCreate || !candidate;
+        if (mode === 'auto' && /继续/.test(text) && !candidate) { message('agent', '还不能唯一确定要继续哪条会话。请选中一个 Session，或补充目标和项目；正式版会检索相关上下文并展示候选。'); return; }
+        if (!create && requestedEndpoint && candidate.endpoint !== requestedEndpoint) {
+          message('agent', `相关工作在 ${endpoints[candidate.endpoint].name} 的“${candidate.title}”。指定端是 ${endpoints[requestedEndpoint].name}。需要选择继续原会话，或在指定端创建独立任务；不会跨端复制 Session。`); return;
+        }
+        const endpoint = create ? (requestedEndpoint ?? 'codex-local') : candidate.endpoint;
+        if (!endpoints[endpoint].writable) { message('agent', 'Qoder 这个演示端仅支持历史观察，尚无已验证的实时控制接口。指令保持未送达，不用改写历史文件模拟执行。'); return; }
+        if (!create) selectSession(candidate.id);
+        state.route = { mode: create ? 'create' : 'continue', endpoint, project: create ? endpoints[endpoint].workspace : candidate.project, native: create ? null : candidate.native, delivery: !create && candidate.stateKind === 'active' ? '当前轮次运行中 → 排队，不暗中中断' : '通过原生接口提交 → 等待稳定回执', reason: create ? '用户选择新建，或没有合适的未结束目标；创建独立会话。' : '目标内容和项目匹配，保留原生会话身份与上下文。', instruction: text, simulated: false };
+        message('agent', create ? `将向 ${endpoints[endpoint].name} 创建独立任务。下方展示目标与创建方式；此处只是路由预览。` : `匹配到“${candidate.title}”。将继续原生 Session，${candidate.stateKind === 'active' ? '由于正在运行，采用排队方式。' : '等待端确认接收。'}下方可核对准确目标。`);
+        renderRoute();
+      }
+      root.addEventListener('click', event => {
+        const button = event.target.closest('button');
+        if (!button || !root.contains(button)) return;
+        if (button.dataset.session) selectSession(button.dataset.session);
+        if (button.dataset.view) { state.view = button.dataset.view; renderInspector(); persist(); }
+        if (button.dataset.step != null) { state.step = Number(button.dataset.step); renderMdp(current()); }
+        if (button.dataset.request != null) { state.request = Number(button.dataset.request); renderUsage(current()); }
+        if (button.dataset.prompt) { $('#at-chat-message').value = button.dataset.prompt; preview(button.dataset.prompt); }
+        if (button.hasAttribute('data-simulate') && state.route && !state.route.simulated) {
+          state.route.simulated = true; state.actionCount += 1; renderRoute();
+          $('.at-footer').textContent = `模拟回执 demo-action-${state.actionCount}：${endpoints[state.route.endpoint].name} 接收预览 → ${state.route.native ?? '待原生创建 Session'}。未发送真实指令，未开始真实执行。`;
+        }
+      });
+      $('.at-composer').addEventListener('submit', event => { event.preventDefault(); const text = $('#at-chat-message').value.trim(); if (text) preview(text); });
+      $('.at-search').addEventListener('input', renderSessions);
+      const tabs = [...root.querySelectorAll('[role="tab"]')];
+      $('.at-tabs').addEventListener('keydown', event => {
+        if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+        const index = tabs.indexOf(document.activeElement);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        event.preventDefault(); tabs[next].focus(); tabs[next].click();
+      });
+      window.addEventListener('openai:set_globals', event => {
+        const next = event.detail?.globals?.widgetState?.privateContent;
+        if (!next) return;
+        if (sessions.some(s => s.id === next.selected)) state.selected = next.selected;
+        if (['briefing', 'mdp', 'usage'].includes(next.view)) state.view = next.view;
+        state.step = 0; state.request = 0; renderSessions(); renderInspector();
+      });
+      renderSessions(); renderMessages(); renderInspector();
+      if (globalThis.Tweak) {
+        const layout = { chatWidth: 300 };
+        const tweak = new Tweak({ container: root, onChange: () => root.style.setProperty('--at-chat-width', layout.chatWidth + 'px') });
+        tweak.addSlider(layout, 'chatWidth', { label: '对话栏宽度', min: 250, max: 380, step: 10, unit: 'px' });
+      }
+    })();
+  </script>
+</div>
