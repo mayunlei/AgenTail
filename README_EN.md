@@ -319,7 +319,8 @@ The output is written to `release/Agentail-macos-universal.tar.gz` and `release/
 
 ## Roadmap
 
-1. Pin end-to-end reopen/resume compatibility fixtures to real installed versions of every supported agent.
-2. Add adapters for Cursor, Gemini CLI, Cline, Aider, and Roo Code.
-3. Add a content-addressed attachment store and encrypted cross-device transport.
-4. Pin upstream capability probes to a CI matrix and automatically fall back to Handoff when compatibility regresses.
+The next phase evolves AgenTail into a **Personal Agent console**: continuously follow agent sessions, preserve working context, produce change briefings, surface decisions, and operate specific tasks through verified runtime interfaces. A supervisor conversation becomes the main interaction, while session synchronization remains the underlying continuity capability.
+
+See the [Personal Agent console design](docs/PERSONAL_AGENT_CONSOLE.md) (Chinese) for user flows, implementation boundaries, data models, task control, milestones, and acceptance criteria. This is a proposed design, not functionality already shipped in v0.5.4.
+
+Further work includes real-version reopen/resume compatibility fixtures, additional agent adapters, a content-addressed attachment store, encrypted cross-device transport, and a CI matrix for upstream capability probes.

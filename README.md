@@ -319,7 +319,8 @@ npm run release:build
 
 ## 下一阶段
 
-1. 用每个真实安装版本固定 reopen/resume 端到端兼容夹具。
-2. 增加 Cursor、Gemini CLI、Cline、Aider、Roo Code Adapter。
-3. 增加附件 content-addressed blob store 与跨设备加密 transport。
-4. 把各上游版本的 capability probe 固定到 CI matrix，发生退化时自动切换到 Handoff。
+下一阶段将 AgenTail 演进为 **Personal Agent 综合控制台**：持续跟踪各 Agent 会话，维护工作上下文、变化 briefing 和待决策事项，并通过经过验证的运行时接口操作具体任务。总管对话成为主要交互，现有会话同步作为底层连续工作能力保留。
+
+产品流程、代码复用边界、数据模型、任务控制和分阶段验收见 [Personal Agent 控制台改造设计](docs/PERSONAL_AGENT_CONSOLE.md)。这是待实施设计，不是 v0.5.4 的现有功能。
+
+后续继续完善：真实安装版本的 reopen/resume 兼容夹具、更多 Agent Adapter、附件 content-addressed blob store、跨设备加密 transport，以及上游版本 capability probe 的 CI matrix。
